@@ -138,8 +138,8 @@ class ExamResult {
   final int? examDurationMinutes;
   final String vehicleType;
   final String language;
-  final String startedAt;
-  final String completedAt;
+  final DateTime startedAt;
+  final DateTime? completedAt;
   final List<CategoryPerformance> categoryPerformance;
   final List<QuestionResult> questionResults;
 
@@ -155,30 +155,35 @@ class ExamResult {
     required this.vehicleType,
     required this.language,
     required this.startedAt,
-    required this.completedAt,
+    this.completedAt,
     required this.categoryPerformance,
     required this.questionResults,
   });
 
   factory ExamResult.fromJson(Map<String, dynamic> json) {
     return ExamResult(
-      examId: json['exam_id'],
-      scorePercentage: json['score_percentage'].toDouble(),
-      correctAnswers: json['correct_answers'],
-      wrongAnswers: json['wrong_answers'],
-      totalQuestions: json['total_questions'],
-      passed: json['passed'],
-      grade: json['grade'],
+      examId: json['exam_id'] ?? '',
+      // Handle string to double conversion
+      scorePercentage:
+          double.tryParse(json['score_percentage'].toString()) ?? 0.0,
+      correctAnswers: json['correct_answers'] ?? 0,
+      wrongAnswers: json['wrong_answers'] ?? 0,
+      totalQuestions: json['total_questions'] ?? 0,
+      passed: json['passed'] ?? false,
+      grade: json['grade'] ?? 'F',
       examDurationMinutes: json['exam_duration_minutes'],
-      vehicleType: json['vehicle_type'],
-      language: json['language'],
-      startedAt: json['started_at'],
-      completedAt: json['completed_at'],
-      categoryPerformance: (json['category_performance'] as List)
-          .map((cp) => CategoryPerformance.fromJson(cp))
-          .toList(),
-      questionResults: (json['question_results'] as List)
-          .map((qr) => QuestionResult.fromJson(qr))
+      vehicleType: json['vehicle_type'] ?? '',
+      language: json['language'] ?? 'en',
+      startedAt: DateTime.parse(json['started_at']),
+      completedAt: json['completed_at'] != null
+          ? DateTime.parse(json['completed_at'])
+          : null,
+      categoryPerformance:
+          (json['category_performance'] as List<dynamic>? ?? [])
+              .map((item) => CategoryPerformance.fromJson(item))
+              .toList(),
+      questionResults: (json['question_results'] as List<dynamic>? ?? [])
+          .map((item) => QuestionResult.fromJson(item))
           .toList(),
     );
   }
@@ -201,11 +206,13 @@ class CategoryPerformance {
 
   factory CategoryPerformance.fromJson(Map<String, dynamic> json) {
     return CategoryPerformance(
-      categoryName: json['category_name'],
-      totalQuestions: json['total_questions'],
-      correctAnswers: json['correct_answers'],
-      wrongAnswers: json['wrong_answers'],
-      accuracyPercentage: json['accuracy_percentage'].toDouble(),
+      categoryName: json['category_name'] ?? '',
+      totalQuestions: json['total_questions'] ?? 0,
+      correctAnswers: json['correct_answers'] ?? 0,
+      wrongAnswers: json['wrong_answers'] ?? 0,
+      // Handle string to double conversion
+      accuracyPercentage:
+          double.tryParse(json['accuracy_percentage'].toString()) ?? 0.0,
     );
   }
 }
@@ -231,13 +238,14 @@ class QuestionResult {
 
   factory QuestionResult.fromJson(Map<String, dynamic> json) {
     return QuestionResult(
-      questionOrder: json['question_order'],
-      questionText: json['question_text'],
+      questionOrder: json['question_order'] ?? 0,
+      questionText: json['question_text'] ?? '',
       selectedOption: json['selected_option'],
-      isCorrect: json['is_correct'] == 1,
+      // Handle 0/1 to boolean conversion
+      isCorrect: json['is_correct'] == 1 || json['is_correct'] == true,
       timeTakenSeconds: json['time_taken_seconds'],
-      correctOption: json['correct_option'],
-      categoryName: json['category_name'],
+      correctOption: json['correct_option'] ?? 1,
+      categoryName: json['category_name'] ?? '',
     );
   }
 }

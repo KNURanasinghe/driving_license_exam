@@ -103,6 +103,7 @@ class _MockExamDoState extends State<MockExamDo> {
 
       final mockExam = startResponse.data!;
       currentExamId = mockExam.examId;
+      print('exam id $currentExamId');
 
       // Get exam questions
       final questionsResponse =
@@ -890,194 +891,153 @@ class MockExamResultScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: FutureBuilder<ApiResponse<ExamResult>>(
-        future: ExamService.getExamResults(examId),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: CircularProgressIndicator(),
-            );
-          }
-
-          if (snapshot.hasError || !snapshot.data!.success) {
-            return Center(
+    return FutureBuilder<ApiResponse<ExamResult>>(
+      future: ExamService.getExamResults(examId),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Scaffold(
+            backgroundColor: const Color(0xFF0C1A64),
+            body: SafeArea(
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.error, size: 64, color: Colors.red),
-                  const SizedBox(height: 16),
-                  const Text('Failed to load results'),
-                  ElevatedButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Go Back'),
-                  ),
-                ],
-              ),
-            );
-          }
-
-          final result = snapshot.data!.data!;
-          return _buildResultScreen(context, result);
-        },
-      ),
-    );
-  }
-
-  Widget _buildResultScreen(BuildContext context, ExamResult result) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF0C1A64),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            children: [
-              // Result Header
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Column(
-                  children: [
-                    Icon(
-                      result.passed ? Icons.celebration : Icons.close,
-                      size: 64,
-                      color: result.passed ? Colors.green : Colors.red,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      result.passed
-                          ? 'Congratulations!'
-                          : 'Better Luck Next Time',
-                      style: const TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
+                  // Header
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(20),
+                    decoration: const BoxDecoration(
+                      color: Color(0xff4378DB),
+                      borderRadius: BorderRadius.only(
+                        bottomLeft: Radius.circular(20),
+                        bottomRight: Radius.circular(20),
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '${result.scorePercentage.toStringAsFixed(1)}% (${result.correctAnswers}/${result.totalQuestions})',
-                      style: TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
-                        color: result.passed ? Colors.green : Colors.red,
-                      ),
-                    ),
-                    Text(
-                      'Grade: ${result.grade}',
-                      style: const TextStyle(fontSize: 18),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 20),
-
-              // Category Performance
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Category Performance',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+                    child: const Column(
+                      children: [
+                        SizedBox(height: 20),
+                        Text(
+                          'MOCK EXAM RESULTS',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 16),
-                      Expanded(
-                        child: ListView.builder(
-                          itemCount: result.categoryPerformance.length,
-                          itemBuilder: (context, index) {
-                            final category = result.categoryPerformance[index];
-                            return Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 8),
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      category.categoryName,
-                                      style: const TextStyle(fontSize: 16),
-                                    ),
-                                  ),
-                                  Text(
-                                    '${category.correctAnswers}/${category.totalQuestions}',
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.bold),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    '${category.accuracyPercentage.toStringAsFixed(1)}%',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: category.accuracyPercentage >= 60
-                                          ? Colors.green
-                                          : Colors.red,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 20),
-
-              // Action Buttons
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.popUntil(context, (route) => route.isFirst);
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: const Color(0xFF0C1A64),
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                      ),
-                      child: const Text('Home'),
+                        SizedBox(height: 10),
+                      ],
                     ),
                   ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                        Navigator.pop(context);
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF4378DB),
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                      ),
-                      child: const Text(
-                        'Try Again',
-                        style: TextStyle(color: Colors.white),
+                  // Loading content
+                  const Expanded(
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          CircularProgressIndicator(color: Colors.white),
+                          SizedBox(height: 16),
+                          Text(
+                            'Loading your exam results...',
+                            style: TextStyle(color: Colors.white, fontSize: 16),
+                          ),
+                        ],
                       ),
                     ),
                   ),
                 ],
               ),
-            ],
+            ),
+          );
+        }
+
+        if (snapshot.hasError || !snapshot.data!.success) {
+          return Scaffold(
+            backgroundColor: const Color(0xFF0C1A64),
+            body: SafeArea(
+              child: Column(
+                children: [
+                  // Header
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(20),
+                    decoration: const BoxDecoration(
+                      color: Color(0xff4378DB),
+                      borderRadius: BorderRadius.only(
+                        bottomLeft: Radius.circular(20),
+                        bottomRight: Radius.circular(20),
+                      ),
+                    ),
+                    child: const Column(
+                      children: [
+                        SizedBox(height: 20),
+                        Text(
+                          'MOCK EXAM RESULTS',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        SizedBox(height: 10),
+                      ],
+                    ),
+                  ),
+                  // Error content
+                  Expanded(
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.error,
+                              size: 64, color: Colors.white),
+                          const SizedBox(height: 16),
+                          const Text(
+                            'Failed to load results',
+                            style: TextStyle(color: Colors.white, fontSize: 18),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            snapshot.data?.message ?? 'Unknown error occurred',
+                            style: const TextStyle(
+                                color: Colors.white70, fontSize: 14),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 20),
+                          ElevatedButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('Go Back'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        final result = snapshot.data!.data!;
+
+        // Navigate to the comprehensive MockResultScreen with exam data
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          Navigator.pushReplacement(
+            context,
+            createFadeRoute(
+              MockResultScreen(
+                examId: examId,
+                source: 'MockExam',
+              ),
+            ),
+          );
+        });
+
+        // Return empty container while navigating
+        return const Scaffold(
+          backgroundColor: Color(0xFF0C1A64),
+          body: Center(
+            child: CircularProgressIndicator(color: Colors.white),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
