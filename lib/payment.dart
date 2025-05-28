@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:driving_license_exam/services/http_service.dart';
 import 'package:driving_license_exam/services/api_service.dart';
+import 'package:driving_license_exam/services/subscription_service.dart';
 import 'models/subscription_models.dart';
 
 class PaymentScreen extends StatefulWidget {
@@ -24,8 +25,145 @@ class PaymentScreen extends StatefulWidget {
 class _PaymentScreenState extends State<PaymentScreen> {
   bool isProcessingPayment = false;
   bool isCreatingLicense = false;
+  String? paymentTransactionId; // Store transaction ID from payment gateway
 
-  // Method to create vehicle license after successful subscription
+  // Method to generate transaction ID in the required format
+  String _generateTransactionId() {
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final random = (timestamp % 1000000000).toString().padLeft(9, '0');
+    return "txn_$random";
+  }
+
+  // Method to handle Razorpay payment (placeholder - implement according to Razorpay documentation)
+  Future<Map<String, dynamic>> _initiateRazorpayPayment() async {
+    try {
+      // This is a placeholder for Razorpay integration
+      // In real implementation, you would:
+      // 1. Initialize Razorpay with your API key
+      // 2. Create payment options with amount, description, etc.
+      // 3. Open Razorpay checkout
+      // 4. Handle success/failure callbacks
+
+      print(
+          "Initiating Razorpay payment for ${widget.selectedPlan.formattedPrice}");
+
+      // Simulate Razorpay payment process
+      await Future.delayed(const Duration(seconds: 2));
+
+      // Simulate successful payment response
+      // In real implementation, this would come from Razorpay's success callback
+      final transactionId = "txn_${DateTime.now().millisecondsSinceEpoch}";
+
+      return {
+        'success': true,
+        'transaction_id': transactionId,
+        'payment_method': 'razorpay',
+        'amount': widget.selectedPlan.price,
+      };
+
+      /*
+      // Real Razorpay implementation would look something like this:
+      var options = {
+        'key': 'your_razorpay_key',
+        'amount': widget.selectedPlan.price * 100, // Amount in paise
+        'name': 'Your App Name',
+        'description': '${widget.selectedPlan.name} - ${widget.vehicleTypeName}',
+        'prefill': {
+          'contact': userPhone,
+          'email': userEmail,
+        },
+        'theme': {
+          'color': '#219EBC'
+        }
+      };
+      
+      _razorpay.open(options);
+      // Handle success/failure in respective callback methods
+      */
+    } catch (e) {
+      print("Razorpay payment error: $e");
+      return {
+        'success': false,
+        'error': e.toString(),
+      };
+    }
+  }
+
+  // Helper method to show success dialog
+  void _showSuccessDialog() {
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.green),
+            SizedBox(width: 8),
+            Text('Success!'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Payment processed successfully!'),
+            const SizedBox(height: 8),
+            Text('Subscription: ${widget.selectedPlan.name}'),
+            Text('Vehicle: ${widget.vehicleTypeName}'),
+            if (paymentTransactionId != null)
+              Text('Transaction ID: $paymentTransactionId'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop(); // Close dialog
+
+              // Call callback to refresh subscription screen
+              if (widget.onSubscriptionCompleted != null) {
+                widget.onSubscriptionCompleted!();
+              }
+
+              Navigator.of(context).pop(); // Go back to subscription screen
+            },
+            child: const Text('Continue'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Helper method to show error dialog
+  void _showErrorDialog(String title, String message) {
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            const Icon(Icons.error_outline, color: Colors.red),
+            const SizedBox(width: 8),
+            Text(title),
+          ],
+        ),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop(); // Close dialog
+              Navigator.of(context).pop(); // Go back to subscription screen
+            },
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<bool> _createVehicleLicense() async {
     try {
       setState(() {
@@ -46,7 +184,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
           "Creating vehicle license for userId: $userId, vehicleTypeId: ${widget.vehicleTypeId}");
 
       final response = await HttpService.post(
-        '/api/mock-exam/admin/user/$userId/licenses',
+        'http://88.222.215.134:3000/exams/api/mock-exam/admin/user/$userId/licenses',
         body: {
           'vehicle_type_id': widget.vehicleTypeId,
           'license_number': licenseNumber,
@@ -208,16 +346,24 @@ class _PaymentScreenState extends State<PaymentScreen> {
       // Placeholder - replace with your actual subscription creation logic
       final userId = await StorageService.getID();
       if (userId == null) return false;
+      final transactionId = _generateTransactionId();
 
       // Example API call (replace with your actual implementation)
-      // final response = await SubscriptionService.createSubscription(
-      //   userId: userId,
-      //   planId: widget.selectedPlan.id,
-      // );
+      final response = await SubscriptionService.createSubscription(
+        userId: userId,
+        planId: widget.selectedPlan.id,
+        paymentMethod: "razorpay",
+        paymentDetails: {
+          "transaction_id": transactionId, // Properly formatted transaction ID
+        },
+      );
 
-      // For now, simulating success
-      await Future.delayed(const Duration(seconds: 1));
-      return true;
+      if (response.success) {
+        // For now, simulating success
+        await Future.delayed(const Duration(seconds: 1));
+        return true;
+      }
+      return false;
     } catch (e) {
       print("Error creating subscription: $e");
       return false;

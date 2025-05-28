@@ -216,7 +216,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
           "Creating vehicle license for userId: $userId, vehicleTypeId: $selectedVehicleTypeId");
 
       final response = await HttpService.post(
-        '/api/mock-exam/admin/user/$userId/licenses',
+        'http://88.222.215.134:3000/exams/api/mock-exam/admin/user/$userId/licenses',
         body: {
           'vehicle_type_id': selectedVehicleTypeId,
           'license_number': licenseNumber,
