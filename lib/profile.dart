@@ -1,15 +1,12 @@
-import 'dart:async';
-
 import 'package:driving_license_exam/component/appbar.dart';
 import 'package:driving_license_exam/component/custompageroute.dart';
 import 'package:driving_license_exam/editprofile.dart';
+import 'package:driving_license_exam/models/subscription_models.dart';
 import 'package:driving_license_exam/screen/login/login.dart';
 import 'package:driving_license_exam/services/api_service.dart';
 import 'package:driving_license_exam/services/subscription_service.dart';
-import 'package:driving_license_exam/models/subscription_models.dart';
 import 'package:flutter/material.dart';
-
-import 'providers/subscription_notifier.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -22,47 +19,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String? name;
   String? email;
   String? date;
-
+  String? profileImageUrl;
   // Subscription related state
   UserSubscription? currentActivePlan;
   bool isSubscriptionLoading = true;
   bool hasSubscriptionError = false;
-
-  StreamSubscription<UserSubscription?>? _subscriptionSubscription;
+  bool isLoadingProfile = true;
 
   @override
   void initState() {
     super.initState();
     // 🔥 FIX: Call getData() in initState to load user details
     _initializeData();
-
-    _listenToSubscriptionUpdates();
-  }
-
-  void _listenToSubscriptionUpdates() {
-    _subscriptionSubscription =
-        SubscriptionNotifier().subscriptionStream.listen((subscription) {
-      if (mounted) {
-        setState(() {
-          currentActivePlan = subscription;
-          isSubscriptionLoading = false;
-          hasSubscriptionError = subscription == null;
-        });
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _subscriptionSubscription?.cancel();
-    super.dispose();
   }
 
   Future<void> _initializeData() async {
+    setState(() {
+      isLoadingProfile = true;
+    });
+
     await Future.wait([
       getData(),
-      SubscriptionNotifier().fetchAndUpdateSubscription(),
+      _fetchUserSubscription(),
     ]);
+
+    setState(() {
+      isLoadingProfile = false;
+    });
   }
 
   String formatBirthdaySimple(String? dateString) {
@@ -98,12 +81,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
     try {
       print('=== Getting User Data for Profile ===');
       final user = await StorageService.getUser();
+      final prefs = await SharedPreferences.getInstance();
+      final String? savedProfileImageUrl = prefs.getString('profile_image_url');
+
       if (user != null) {
         print('User found: ${user.name}, ${user.email}, ${user.dateOfBirth}');
         setState(() {
           name = user.name;
           email = user.email;
           date = user.dateOfBirth;
+          profileImageUrl = savedProfileImageUrl;
         });
       } else {
         print('No user data found in storage');
@@ -178,6 +165,44 @@ class _ProfileScreenState extends State<ProfileScreen> {
     // If multiple active subscriptions, return the one with the latest end date
     activeSubscriptions.sort((a, b) => b.endDate.compareTo(a.endDate));
     return activeSubscriptions.first;
+  }
+
+  Future<void> _navigateToEditProfile() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String? userId = prefs.getString('user_id');
+
+    if (userId != null) {
+      // Navigate to edit profile and wait for result
+      final result = await Navigator.push(
+        context,
+        createFadeRoute(Editprofile(
+          userId: userId,
+          name: name,
+          dateOfBirth: formatBirthdaySimple(date),
+          profileImageUrl: profileImageUrl,
+        )),
+      );
+
+      // If profile was updated successfully, refresh the data
+      if (result == true) {
+        await _initializeData();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Profile updated successfully!'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Error: User ID not found'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   Future<void> _showLogoutDialog(BuildContext context) async {
@@ -255,9 +280,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    const CircleAvatar(
+                    // Fixed profile image to show network image if available
+                    CircleAvatar(
                       radius: 50,
-                      backgroundImage: AssetImage('assets/images/profile.png'),
+                      backgroundImage:
+                          profileImageUrl != null && profileImageUrl!.isNotEmpty
+                              ? NetworkImage(profileImageUrl!) as ImageProvider
+                              : const AssetImage('assets/images/profile.png'),
+                      onBackgroundImageError: (exception, stackTrace) {
+                        print('Error loading profile image: $exception');
+                      },
                     ),
                     const SizedBox(height: 10),
                     Text(
@@ -306,7 +338,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             const Text('Date of birth:',
                                 style: TextStyle(
                                     fontSize: 12, color: Colors.grey)),
-                            Text(formatBirthdaySimple(date) ?? 'Loading...',
+                            Text(formatBirthdaySimple(date),
                                 style: const TextStyle(fontSize: 15)),
                             const SizedBox(height: 8),
                           ],
@@ -318,10 +350,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       width: MediaQuery.of(context).size.width,
                       padding: const EdgeInsets.symmetric(horizontal: 0),
                       child: ElevatedButton(
-                        onPressed: () {
-                          Navigator.push(
-                              context, createFadeRoute(const Editprofile()));
-                        },
+                        // Fixed: Now calls the proper navigation method with parameters
+                        onPressed: _navigateToEditProfile,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFFEBF6FF),
                           foregroundColor: Colors.black,
