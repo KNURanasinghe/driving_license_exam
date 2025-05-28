@@ -4,11 +4,15 @@ import 'package:driving_license_exam/component/custompageroute.dart';
 import 'package:driving_license_exam/component/nextbutton.dart';
 import 'package:driving_license_exam/mock_result_screen.dart';
 import 'package:driving_license_exam/models/study_models.dart';
+import 'package:driving_license_exam/models/exam_models.dart';
 import 'package:driving_license_exam/services/api_service.dart';
-import 'package:driving_license_exam/services/study_service.dart';
+import 'package:driving_license_exam/services/exam_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:just_audio/just_audio.dart';
+
+import 'services/api_config.dart';
+import 'services/study_service.dart';
 
 class MockExamDo extends StatefulWidget {
   final String source;
@@ -17,6 +21,7 @@ class MockExamDo extends StatefulWidget {
   final int? lessonId;
   final int? vehicleTypeId;
   final String? userId;
+  final String? examType;
 
   const MockExamDo({
     super.key,
@@ -26,6 +31,7 @@ class MockExamDo extends StatefulWidget {
     this.lessonId,
     this.vehicleTypeId,
     this.userId,
+    this.examType,
   });
 
   @override
@@ -36,7 +42,6 @@ class _MockExamDoState extends State<MockExamDo> {
   int selectedAnswer = -1;
   int currentQuestionIndex = 0;
   List<int> userAnswers = [];
-  List<Question> questions = [];
   bool showAnswer = false;
   bool _triggerAnimation = false;
   bool isLoading = true;
@@ -44,21 +49,100 @@ class _MockExamDoState extends State<MockExamDo> {
 
   // Timer-related variables
   late Timer _timer;
-  int _remainingSeconds = 60 * 60; // 60 minutes
+  int _remainingSeconds = 60 * 60; // Default 60 minutes
   bool _isTimeUp = false;
 
   late AudioPlayer _audioPlayer;
   String sessionId = DateTime.now().millisecondsSinceEpoch.toString();
 
+  // For study materials
+  List<Question> studyQuestions = [];
+
+  // For mock exams
+  List<ExamQuestion> mockExamQuestions = [];
+  String? currentExamId;
+  ExamData? examData;
+
   @override
   void initState() {
     super.initState();
     _initializeAudioPlayer();
-    _fetchQuestions();
-    _startTimer();
+    _initializeExam();
   }
 
-  Future<void> _fetchQuestions() async {
+  Future<void> _initializeExam() async {
+    if (widget.source == "MockExam" && widget.userId != null) {
+      await _startMockExam();
+    } else {
+      await _fetchStudyQuestions();
+    }
+  }
+
+  Future<void> _startMockExam() async {
+    try {
+      setState(() {
+        isLoading = true;
+        errorMessage = null;
+      });
+
+      // Start mock exam
+      final startResponse = await ExamService.startMockExam(
+        userId: widget.userId!,
+        language: widget.selectedLanguageCode,
+      );
+
+      if (!startResponse.success) {
+        setState(() {
+          errorMessage = startResponse.message.isNotEmpty
+              ? startResponse.message
+              : 'Failed to start mock exam';
+          isLoading = false;
+        });
+        return;
+      }
+
+      final mockExam = startResponse.data!;
+      currentExamId = mockExam.examId;
+
+      // Get exam questions
+      final questionsResponse =
+          await ExamService.getExamQuestions(currentExamId!);
+
+      if (!questionsResponse.success) {
+        setState(() {
+          errorMessage = questionsResponse.message.isNotEmpty
+              ? questionsResponse.message
+              : 'Failed to load exam questions';
+          isLoading = false;
+        });
+        return;
+      }
+
+      examData = questionsResponse.data!;
+      mockExamQuestions = examData!.questions;
+
+      // Set remaining time from server
+      _remainingSeconds =
+          (examData!.remainingMinutes * 60) + examData!.remainingSeconds;
+
+      setState(() {
+        userAnswers = List.filled(mockExamQuestions.length, -1);
+        isLoading = false;
+      });
+
+      _startTimer();
+      if (mockExamQuestions.isNotEmpty) {
+        _loadCurrentQuestionAudio();
+      }
+    } catch (e) {
+      setState(() {
+        errorMessage = 'Error starting mock exam: ${e.toString()}';
+        isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _fetchStudyQuestions() async {
     try {
       setState(() {
         isLoading = true;
@@ -66,7 +150,7 @@ class _MockExamDoState extends State<MockExamDo> {
       });
 
       if (widget.lessonId != null && widget.vehicleTypeId != null) {
-        // Fetch real questions from API using your existing service
+        // Fetch study material questions
         final response = await StudyService.getQuestions(
           lessonId: widget.lessonId!,
           vehicleTypeId: widget.vehicleTypeId!,
@@ -75,12 +159,12 @@ class _MockExamDoState extends State<MockExamDo> {
 
         if (response.success && response.data != null) {
           setState(() {
-            questions = response.data!;
-            userAnswers = List.filled(questions.length, -1);
+            studyQuestions = response.data!;
+            userAnswers = List.filled(studyQuestions.length, -1);
             isLoading = false;
           });
 
-          if (questions.isNotEmpty) {
+          if (studyQuestions.isNotEmpty) {
             _loadCurrentQuestionAudio();
           }
         } else {
@@ -92,16 +176,18 @@ class _MockExamDoState extends State<MockExamDo> {
           });
         }
       } else {
-        // Fallback to hardcoded questions for demo/mock exams
+        // Fallback to hardcoded questions
         _initializeHardcodedQuestions();
         setState(() {
-          userAnswers = List.filled(questions.length, -1);
+          userAnswers = List.filled(studyQuestions.length, -1);
           isLoading = false;
         });
-        if (questions.isNotEmpty) {
+        if (studyQuestions.isNotEmpty) {
           _loadCurrentQuestionAudio();
         }
       }
+
+      _startTimer();
     } catch (e) {
       setState(() {
         errorMessage = 'Error loading questions: ${e.toString()}';
@@ -128,60 +214,17 @@ class _MockExamDoState extends State<MockExamDo> {
           ],
           'correctAnswer': 1,
         },
-        {
-          'question':
-              'What should you do when approaching a red traffic light?',
-          'image': 'assets/images/redligt.jpg',
-          'audio': 'assets/audio/e2.mp3',
-          'answers': [
-            'Speed up to cross quickly',
-            'Come to a complete stop',
-            'Slow down but continue moving',
-            'Ignore if no vehicles are coming',
-          ],
-          'correctAnswer': 1,
-        },
-      ];
-    } else if (widget.selectedLanguage == 'Sinhala') {
-      hardcodedData = [
-        {
-          'question': 'මෙම ගමනාගමන සංඥාවෙන් දැක්වෙන්නේ කුමක්ද?',
-          'image': 'assets/images/exam.png',
-          'audio': 'assets/audio/s1.mp3',
-          'answers': [
-            'දකුණට වක්‍රය',
-            'දකුණට සෘජු කෝණවලින් පැත්තක මාර්ගයට එකතු වීම',
-            'ඉදිරියේ නවත්වන සංඥාව',
-            'ස්ලිප්පි මාර්ගය',
-          ],
-          'correctAnswer': 1,
-        },
-      ];
-    } else if (widget.selectedLanguage == 'Tamil') {
-      hardcodedData = [
-        {
-          'question': 'இந்த போக்குவரத்து அடையாளம் எதைக் குறிக்கிறது?',
-          'image': 'assets/images/exam.png',
-          'audio': 'assets/audio/t1.mp3',
-          'answers': [
-            'வலதுபுறம் வளைவு',
-            'வலதுபுறம் செங்கோணங்களில் ஒரு பக்க சாலையில் சேர்தல்',
-            'முன்னே நிறுத்தும் அடையாளம்',
-            'வழுக்கல் சாலை',
-          ],
-          'correctAnswer': 1,
-        },
+        // Add more hardcoded questions as needed
       ];
     }
 
     // Convert hardcoded data to Question objects
-    questions = hardcodedData.asMap().entries.map((entry) {
+    studyQuestions = hardcodedData.asMap().entries.map((entry) {
       final data = entry.value;
       return Question(
         id: entry.key + 1,
         questionText: data['question'],
-        correctOption:
-            (data['correctAnswer'] as int) + 1, // Convert to 1-based indexing
+        correctOption: (data['correctAnswer'] as int) + 1,
         explanation: 'This is the correct answer explanation.',
         vehicleTypeId: widget.vehicleTypeId ?? 2,
         vehicleTypeName: 'Demo Vehicle',
@@ -210,19 +253,21 @@ class _MockExamDoState extends State<MockExamDo> {
   }
 
   Future<void> _loadCurrentQuestionAudio() async {
-    if (questions.isEmpty) return;
-
     try {
       await _audioPlayer.stop();
-      final currentQuestion = questions[currentQuestionIndex];
+      String? audioUrl;
 
-      if (currentQuestion.questionAudio != null) {
-        if (currentQuestion.questionAudio!.startsWith('assets/')) {
-          // Local asset audio
-          await _audioPlayer.setAsset(currentQuestion.questionAudio!);
+      if (widget.source == "MockExam" && mockExamQuestions.isNotEmpty) {
+        audioUrl = mockExamQuestions[currentQuestionIndex].questionAudio;
+      } else if (studyQuestions.isNotEmpty) {
+        audioUrl = studyQuestions[currentQuestionIndex].questionAudio;
+      }
+
+      if (audioUrl != null) {
+        if (audioUrl.startsWith('assets/')) {
+          await _audioPlayer.setAsset(audioUrl);
         } else {
-          // Network audio URL
-          await _audioPlayer.setUrl(currentQuestion.questionAudio!);
+          await _audioPlayer.setUrl(audioUrl);
         }
       }
     } catch (e) {
@@ -258,35 +303,46 @@ class _MockExamDoState extends State<MockExamDo> {
     });
   }
 
-  void _navigateToResultScreen() {
+  Future<void> _navigateToResultScreen() async {
     if (selectedAnswer != -1) {
       userAnswers[currentQuestionIndex] = selectedAnswer;
     }
 
-    // Convert Question objects back to the format expected by MockResultScreen
-    List<Map<String, dynamic>> questionData = questions
-        .map((q) => {
-              'question': q.questionText,
-              'answers': q.options.map((opt) => opt.optionText).toList(),
-              'correctAnswer':
-                  q.correctOption - 1, // Convert back to 0-based indexing
-            })
-        .toList();
+    if (widget.source == "MockExam" && currentExamId != null) {
+      // Submit mock exam
+      await ExamService.submitExam(currentExamId!);
 
-    Navigator.pushReplacement(
-      context,
-      createFadeRoute(MockResultScreen(
-        totalQuestions: questions.length,
-        correctAnswers: userAnswers
-            .asMap()
-            .entries
-            .where((entry) => entry.value == questions[entry.key].correctOption)
-            .length,
-        source: widget.source,
-        userAnswers: userAnswers,
-        questions: questionData,
-      )),
-    );
+      // Navigate to mock exam results
+      Navigator.pushReplacement(
+        context,
+        createFadeRoute(MockExamResultScreen(examId: currentExamId!)),
+      );
+    } else {
+      // Handle study materials result
+      List<Map<String, dynamic>> questionData = studyQuestions
+          .map((q) => {
+                'question': q.questionText,
+                'answers': q.options.map((opt) => opt.optionText).toList(),
+                'correctAnswer': q.correctOption - 1,
+              })
+          .toList();
+
+      Navigator.pushReplacement(
+        context,
+        createFadeRoute(MockResultScreen(
+          totalQuestions: studyQuestions.length,
+          correctAnswers: userAnswers
+              .asMap()
+              .entries
+              .where((entry) =>
+                  entry.value == studyQuestions[entry.key].correctOption)
+              .length,
+          source: widget.source,
+          userAnswers: userAnswers,
+          questions: questionData,
+        )),
+      );
+    }
   }
 
   String _formatTime(int seconds) {
@@ -295,12 +351,25 @@ class _MockExamDoState extends State<MockExamDo> {
     return "${minutes.toString().padLeft(2, '0')}:${remainingSeconds.toString().padLeft(2, '0')}";
   }
 
-  void _goToNextQuestion() {
+  Future<void> _goToNextQuestion() async {
     setState(() {
       if (_audioPlayer.playing) {
         _audioPlayer.pause();
       }
     });
+
+    // Submit answer for mock exam
+    if (widget.source == "MockExam" &&
+        currentExamId != null &&
+        selectedAnswer != -1) {
+      final currentQuestion = mockExamQuestions[currentQuestionIndex];
+      await ExamService.submitExamAnswer(
+        examId: currentExamId!,
+        questionId: currentQuestion.id,
+        selectedOption: selectedAnswer,
+        timeTakenSeconds: 30, // You can track actual time taken
+      );
+    }
 
     Future.delayed(const Duration(milliseconds: 300), () {
       if (widget.source == 'StudyMaterials') {
@@ -309,7 +378,7 @@ class _MockExamDoState extends State<MockExamDo> {
             showAnswer = true;
           } else {
             userAnswers[currentQuestionIndex] = selectedAnswer;
-            if (currentQuestionIndex < questions.length - 1) {
+            if (currentQuestionIndex < _getTotalQuestions() - 1) {
               currentQuestionIndex++;
               selectedAnswer = userAnswers[currentQuestionIndex];
               showAnswer = false;
@@ -321,7 +390,7 @@ class _MockExamDoState extends State<MockExamDo> {
           }
         });
       } else {
-        if (currentQuestionIndex < questions.length - 1) {
+        if (currentQuestionIndex < _getTotalQuestions() - 1) {
           setState(() {
             userAnswers[currentQuestionIndex] = selectedAnswer;
             currentQuestionIndex++;
@@ -407,6 +476,18 @@ class _MockExamDoState extends State<MockExamDo> {
     }
   }
 
+  int _getTotalQuestions() {
+    return widget.source == "MockExam"
+        ? mockExamQuestions.length
+        : studyQuestions.length;
+  }
+
+  dynamic _getCurrentQuestion() {
+    return widget.source == "MockExam"
+        ? mockExamQuestions[currentQuestionIndex]
+        : studyQuestions[currentQuestionIndex];
+  }
+
   @override
   void dispose() {
     _timer.cancel();
@@ -462,7 +543,7 @@ class _MockExamDoState extends State<MockExamDo> {
                 ),
                 const SizedBox(height: 16),
                 ElevatedButton(
-                  onPressed: _fetchQuestions,
+                  onPressed: _initializeExam,
                   child: const Text('Retry'),
                 ),
               ],
@@ -472,7 +553,7 @@ class _MockExamDoState extends State<MockExamDo> {
       );
     }
 
-    if (questions.isEmpty) {
+    if (_getTotalQuestions() == 0) {
       return const Scaffold(
         backgroundColor: Color(0xFF0C1A64),
         body: Center(
@@ -484,8 +565,8 @@ class _MockExamDoState extends State<MockExamDo> {
       );
     }
 
-    final currentQuestion = questions[currentQuestionIndex];
-    final isLastQuestion = currentQuestionIndex == questions.length - 1;
+    final currentQuestion = _getCurrentQuestion();
+    final isLastQuestion = currentQuestionIndex == _getTotalQuestions() - 1;
 
     return Scaffold(
       backgroundColor: const Color(0xFF0C1A64),
@@ -525,7 +606,7 @@ class _MockExamDoState extends State<MockExamDo> {
                     Row(
                       children: [
                         Text(
-                            "Question ${currentQuestionIndex + 1}/${questions.length}",
+                            "Question ${currentQuestionIndex + 1}/${_getTotalQuestions()}",
                             style: const TextStyle(
                                 color: Color.fromARGB(255, 0, 0, 0),
                                 fontSize: 16)),
@@ -533,7 +614,7 @@ class _MockExamDoState extends State<MockExamDo> {
                     ),
                     const SizedBox(height: 8),
                     LinearProgressIndicator(
-                      value: (currentQuestionIndex + 1) / questions.length,
+                      value: (currentQuestionIndex + 1) / _getTotalQuestions(),
                       minHeight: 8,
                       backgroundColor: const Color.fromARGB(60, 1, 1, 1),
                       valueColor: const AlwaysStoppedAnimation<Color>(
@@ -560,7 +641,8 @@ class _MockExamDoState extends State<MockExamDo> {
                       alignment: Alignment.topLeft,
                       child: Column(
                         children: [
-                          if (currentQuestion.questionAudio != null)
+                          // Audio button
+                          if (_hasQuestionAudio())
                             Align(
                               alignment: Alignment.topRight,
                               child: IconButton(
@@ -573,7 +655,7 @@ class _MockExamDoState extends State<MockExamDo> {
                               ),
                             ),
                           Text(
-                            currentQuestion.questionText,
+                            _getQuestionText(),
                             style: const TextStyle(
                                 fontWeight: FontWeight.bold, fontSize: 16),
                           ),
@@ -582,16 +664,16 @@ class _MockExamDoState extends State<MockExamDo> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Question Image
-                    if (currentQuestion.imageUrl != null)
+                    // Question Image (if available)
+                    if (_getImageUrl() != null)
                       Center(
-                        child: currentQuestion.imageUrl!.startsWith('assets/')
+                        child: _getImageUrl()!.startsWith('assets/')
                             ? Image.asset(
-                                currentQuestion.imageUrl!,
+                                _getImageUrl()!,
                                 height: 100,
                               )
                             : Image.network(
-                                currentQuestion.imageUrl!,
+                                _getImageUrl()!,
                                 height: 100,
                                 errorBuilder: (context, error, stackTrace) {
                                   return Container(
@@ -643,11 +725,10 @@ class _MockExamDoState extends State<MockExamDo> {
                 child: ListView.builder(
                   key: ValueKey(
                       'answers-$currentQuestionIndex-$_triggerAnimation'),
-                  itemCount: currentQuestion.options.length,
+                  itemCount: _getOptionsCount(),
                   itemBuilder: (context, index) {
-                    final option = currentQuestion.options[index];
-                    bool isCorrect =
-                        option.optionNumber == currentQuestion.correctOption;
+                    final option = _getOptionAt(index);
+                    bool isCorrect = _isCorrectOption(index);
                     bool showIndicator =
                         showAnswer && widget.source == 'StudyMaterials';
 
@@ -656,22 +737,22 @@ class _MockExamDoState extends State<MockExamDo> {
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: selectedAnswer == option.optionNumber
+                          color: selectedAnswer == _getOptionNumber(index)
                               ? Colors.blue
                               : Colors.grey.shade300,
                         ),
                         color: showIndicator && isCorrect
                             ? Colors.green.shade50
                             : showIndicator &&
-                                    selectedAnswer == option.optionNumber &&
+                                    selectedAnswer == _getOptionNumber(index) &&
                                     !isCorrect
                                 ? Colors.red.shade50
-                                : selectedAnswer == option.optionNumber
+                                : selectedAnswer == _getOptionNumber(index)
                                     ? Colors.blue.shade50
                                     : Colors.white,
                       ),
                       child: RadioListTile<int>(
-                        value: option.optionNumber,
+                        value: _getOptionNumber(index),
                         groupValue: selectedAnswer,
                         onChanged: (value) {
                           if (!showAnswer ||
@@ -685,7 +766,7 @@ class _MockExamDoState extends State<MockExamDo> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Expanded(
-                              child: Text(option.optionText),
+                              child: Text(_getOptionText(option)),
                             ),
                             if (showIndicator)
                               Icon(
@@ -729,6 +810,267 @@ class _MockExamDoState extends State<MockExamDo> {
                   NextButton(
                     onPressed: selectedAnswer != -1 ? _goToNextQuestion : null,
                     isLastQuestion: isLastQuestion,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Helper methods to handle both question types
+  String _getQuestionText() {
+    if (widget.source == "MockExam") {
+      return mockExamQuestions[currentQuestionIndex].questionText;
+    } else {
+      return studyQuestions[currentQuestionIndex].questionText;
+    }
+  }
+
+  String? _getImageUrl() {
+    if (widget.source == "MockExam") {
+      return mockExamQuestions[currentQuestionIndex].imageUrl;
+    } else {
+      return studyQuestions[currentQuestionIndex].imageUrl;
+    }
+  }
+
+  bool _hasQuestionAudio() {
+    if (widget.source == "MockExam") {
+      return mockExamQuestions[currentQuestionIndex].questionAudio != null;
+    } else {
+      return studyQuestions[currentQuestionIndex].questionAudio != null;
+    }
+  }
+
+  int _getOptionsCount() {
+    if (widget.source == "MockExam") {
+      return mockExamQuestions[currentQuestionIndex].options.length;
+    } else {
+      return studyQuestions[currentQuestionIndex].options.length;
+    }
+  }
+
+  dynamic _getOptionAt(int index) {
+    if (widget.source == "MockExam") {
+      return mockExamQuestions[currentQuestionIndex].options[index];
+    } else {
+      return studyQuestions[currentQuestionIndex].options[index];
+    }
+  }
+
+  int _getOptionNumber(int index) {
+    final option = _getOptionAt(index);
+    return option.optionNumber;
+  }
+
+  String _getOptionText(dynamic option) {
+    return option.optionText;
+  }
+
+  bool _isCorrectOption(int index) {
+    if (widget.source == "MockExam") {
+      // For mock exams, we don't show correct answers immediately
+      return false;
+    } else {
+      final option = _getOptionAt(index);
+      return option.optionNumber ==
+          studyQuestions[currentQuestionIndex].correctOption;
+    }
+  }
+}
+
+// Add MockExamResultScreen for handling mock exam results
+class MockExamResultScreen extends StatelessWidget {
+  final String examId;
+
+  const MockExamResultScreen({required this.examId, super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: FutureBuilder<ApiResponse<ExamResult>>(
+        future: ExamService.getExamResults(examId),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(
+              child: CircularProgressIndicator(),
+            );
+          }
+
+          if (snapshot.hasError || !snapshot.data!.success) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.error, size: 64, color: Colors.red),
+                  const SizedBox(height: 16),
+                  const Text('Failed to load results'),
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Go Back'),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          final result = snapshot.data!.data!;
+          return _buildResultScreen(context, result);
+        },
+      ),
+    );
+  }
+
+  Widget _buildResultScreen(BuildContext context, ExamResult result) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF0C1A64),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            children: [
+              // Result Header
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  children: [
+                    Icon(
+                      result.passed ? Icons.celebration : Icons.close,
+                      size: 64,
+                      color: result.passed ? Colors.green : Colors.red,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      result.passed
+                          ? 'Congratulations!'
+                          : 'Better Luck Next Time',
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '${result.scorePercentage.toStringAsFixed(1)}% (${result.correctAnswers}/${result.totalQuestions})',
+                      style: TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                        color: result.passed ? Colors.green : Colors.red,
+                      ),
+                    ),
+                    Text(
+                      'Grade: ${result.grade}',
+                      style: const TextStyle(fontSize: 18),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              // Category Performance
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Category Performance',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Expanded(
+                        child: ListView.builder(
+                          itemCount: result.categoryPerformance.length,
+                          itemBuilder: (context, index) {
+                            final category = result.categoryPerformance[index];
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      category.categoryName,
+                                      style: const TextStyle(fontSize: 16),
+                                    ),
+                                  ),
+                                  Text(
+                                    '${category.correctAnswers}/${category.totalQuestions}',
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.bold),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    '${category.accuracyPercentage.toStringAsFixed(1)}%',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: category.accuracyPercentage >= 60
+                                          ? Colors.green
+                                          : Colors.red,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              // Action Buttons
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.popUntil(context, (route) => route.isFirst);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: const Color(0xFF0C1A64),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
+                      child: const Text('Home'),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        Navigator.pop(context);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF4378DB),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
+                      child: const Text(
+                        'Try Again',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ),
                   ),
                 ],
               ),

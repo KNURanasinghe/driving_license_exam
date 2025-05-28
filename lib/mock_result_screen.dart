@@ -51,7 +51,7 @@ class MockResultScreen extends StatelessWidget {
               heading: heading),
           // Header
 
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
           // Answer Summary
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -67,7 +67,7 @@ class MockResultScreen extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 24),
+          //const SizedBox(height: 8),
           // Result Section
           Expanded(
             child: Column(

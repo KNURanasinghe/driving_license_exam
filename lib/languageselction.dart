@@ -10,6 +10,7 @@ class LanguageSelectionScreen extends StatefulWidget {
   final String? lessonTitle;
   final int? vehicleTypeId;
   final String? userId;
+  final String? examType; // Add exam type parameter
 
   const LanguageSelectionScreen({
     super.key,
@@ -19,6 +20,7 @@ class LanguageSelectionScreen extends StatefulWidget {
     this.lessonTitle,
     this.vehicleTypeId,
     this.userId,
+    this.examType,
   });
 
   @override
@@ -56,40 +58,11 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
                   children: [
                     SizedBox(height: size.height * 0.15),
 
-                    // Show lesson title if available
+                    // Show lesson title for study materials or exam info for mock exams
                     if (widget.lessonTitle != null)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 20),
-                        child: Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: widget.buttonColor.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: widget.buttonColor.withOpacity(0.3),
-                            ),
-                          ),
-                          child: Column(
-                            children: [
-                              Icon(
-                                Icons.book,
-                                color: widget.buttonColor,
-                                size: 32,
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                widget.lessonTitle!,
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w500,
-                                  color: widget.buttonColor,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
+                      _buildLessonInfo()
+                    else if (widget.source == "MockExam")
+                      _buildExamInfo(),
 
                     const Text(
                       "Select Your Language",
@@ -161,6 +134,7 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
                             lessonId: widget.lessonId,
                             vehicleTypeId: widget.vehicleTypeId,
                             userId: widget.userId,
+                            examType: widget.examType,
                           )),
                         );
 
@@ -169,6 +143,9 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
                         if (widget.lessonId != null) {
                           print(
                               "Lesson ID: ${widget.lessonId}, Vehicle Type: ${widget.vehicleTypeId}");
+                        }
+                        if (widget.examType != null) {
+                          print("Exam Type: ${widget.examType}");
                         }
                       },
                       style: ElevatedButton.styleFrom(
@@ -181,9 +158,7 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
                         ),
                       ),
                       child: Text(
-                        widget.source == "StudyMaterials"
-                            ? "Start Learning"
-                            : "Start Exam",
+                        _getButtonText(),
                         style: const TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.w500,
@@ -202,5 +177,95 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
         ],
       ),
     );
+  }
+
+  Widget _buildLessonInfo() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 20),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: widget.buttonColor.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: widget.buttonColor.withOpacity(0.3),
+          ),
+        ),
+        child: Column(
+          children: [
+            Icon(
+              Icons.book,
+              color: widget.buttonColor,
+              size: 32,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              widget.lessonTitle!,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: widget.buttonColor,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildExamInfo() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 20),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: widget.buttonColor.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: widget.buttonColor.withOpacity(0.3),
+          ),
+        ),
+        child: Column(
+          children: [
+            Icon(
+              Icons.quiz,
+              color: widget.buttonColor,
+              size: 32,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Mock Exam',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: widget.buttonColor,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '40 Questions • 60 Minutes',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                color: widget.buttonColor.withOpacity(0.8),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _getButtonText() {
+    switch (widget.source) {
+      case "StudyMaterials":
+        return "Start Learning";
+      case "MockExam":
+        return "Start Mock Exam";
+      default:
+        return "Start Exam";
+    }
   }
 }
