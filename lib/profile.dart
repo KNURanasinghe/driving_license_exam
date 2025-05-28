@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:driving_license_exam/component/appbar.dart';
 import 'package:driving_license_exam/component/custompageroute.dart';
 import 'package:driving_license_exam/editprofile.dart';
@@ -6,6 +8,8 @@ import 'package:driving_license_exam/services/api_service.dart';
 import 'package:driving_license_exam/services/subscription_service.dart';
 import 'package:driving_license_exam/models/subscription_models.dart';
 import 'package:flutter/material.dart';
+
+import 'providers/subscription_notifier.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -24,17 +28,40 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool isSubscriptionLoading = true;
   bool hasSubscriptionError = false;
 
+  StreamSubscription<UserSubscription?>? _subscriptionSubscription;
+
   @override
   void initState() {
     super.initState();
     // 🔥 FIX: Call getData() in initState to load user details
     _initializeData();
+
+    _listenToSubscriptionUpdates();
+  }
+
+  void _listenToSubscriptionUpdates() {
+    _subscriptionSubscription =
+        SubscriptionNotifier().subscriptionStream.listen((subscription) {
+      if (mounted) {
+        setState(() {
+          currentActivePlan = subscription;
+          isSubscriptionLoading = false;
+          hasSubscriptionError = subscription == null;
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _subscriptionSubscription?.cancel();
+    super.dispose();
   }
 
   Future<void> _initializeData() async {
     await Future.wait([
       getData(),
-      _fetchUserSubscription(),
+      SubscriptionNotifier().fetchAndUpdateSubscription(),
     ]);
   }
 

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:driving_license_exam/component/custompageroute.dart';
 import 'package:driving_license_exam/exammain.dart';
 import 'package:driving_license_exam/premium.dart';
@@ -6,6 +8,7 @@ import 'package:driving_license_exam/profile.dart';
 import 'package:driving_license_exam/studymaterial.dart';
 import 'package:flutter/material.dart';
 
+import 'providers/subscription_notifier.dart';
 import 'services/api_service.dart';
 import 'services/subscription_service.dart';
 import 'models/subscription_models.dart';
@@ -114,10 +117,32 @@ class _HomeContentState extends State<HomeContent> {
   bool isSubscriptionLoading = true;
   bool hasSubscriptionError = false;
 
+  StreamSubscription<UserSubscription?>? _subscriptionSubscription;
+
   @override
   void initState() {
     super.initState();
     _initializeData();
+    _listenToSubscriptionUpdates();
+  }
+
+  void _listenToSubscriptionUpdates() {
+    _subscriptionSubscription =
+        SubscriptionNotifier().subscriptionStream.listen((subscription) {
+      if (mounted) {
+        setState(() {
+          currentActivePlan = subscription;
+          isSubscriptionLoading = false;
+          hasSubscriptionError = subscription == null;
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _subscriptionSubscription?.cancel();
+    super.dispose();
   }
 
   Future<void> _initializeData() async {

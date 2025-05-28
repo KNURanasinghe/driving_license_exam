@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:driving_license_exam/component/appbar.dart';
 import 'package:driving_license_exam/component/custompageroute.dart';
 import 'package:driving_license_exam/payment.dart';
@@ -6,6 +8,7 @@ import 'package:driving_license_exam/services/http_service.dart';
 import 'package:flutter/material.dart';
 
 import 'models/subscription_models.dart';
+import 'providers/subscription_notifier.dart';
 import 'services/subscription_service.dart';
 import 'component/api_error_handler.dart';
 
@@ -62,10 +65,31 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     },
   ];
 
+  StreamSubscription<UserSubscription?>? _subscriptionSubscription;
+
   @override
   void initState() {
     super.initState();
     _initializeData();
+    _listenToSubscriptionUpdates();
+  }
+
+  void _listenToSubscriptionUpdates() {
+    _subscriptionSubscription =
+        SubscriptionNotifier().subscriptionStream.listen((subscription) {
+      if (mounted) {
+        setState(() {
+          currentActivePlan = subscription;
+          isUserPlanLoading = false;
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _subscriptionSubscription?.cancel();
+    super.dispose();
   }
 
   // Initialize both user subscriptions and subscription plans
@@ -250,6 +274,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
 
   // Method to handle subscription purchase completion
   Future<void> _onSubscriptionPurchased() async {
+    await SubscriptionNotifier().fetchAndUpdateSubscription();
     // Refresh user subscriptions
     await _fetchUserSubscriptions();
 

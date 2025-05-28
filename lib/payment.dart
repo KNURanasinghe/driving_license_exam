@@ -3,6 +3,7 @@ import 'package:driving_license_exam/services/http_service.dart';
 import 'package:driving_license_exam/services/api_service.dart';
 import 'package:driving_license_exam/services/subscription_service.dart';
 import 'models/subscription_models.dart';
+import 'providers/subscription_notifier.dart';
 
 class PaymentScreen extends StatefulWidget {
   final SubscriptionPlan selectedPlan;
@@ -261,6 +262,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
       if (subscriptionCreated) {
         // After successful subscription creation, create vehicle license
         bool licenseCreated = await _createVehicleLicense();
+        await SubscriptionNotifier().fetchAndUpdateSubscription();
 
         if (licenseCreated) {
           // Call the callback to refresh the subscription screen
