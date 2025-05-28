@@ -28,19 +28,37 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   UserSubscription? currentActivePlan; // The current active subscription
   List<SubscriptionPlan> currentPlans = [];
 
+  // Updated vehicle types with vehicle_type_id mapping
   final List<Map<String, dynamic>> vehicleTypes = [
-    {"name": "Car", "icon": Icons.directions_car, "api_name": "car"},
-    {"name": "Bike", "icon": Icons.motorcycle, "api_name": "bike"},
+    {
+      "name": "Car",
+      "icon": Icons.directions_car,
+      "api_name": "car",
+      "vehicle_type_id": 1
+    },
+    {
+      "name": "Bike",
+      "icon": Icons.motorcycle,
+      "api_name": "bike",
+      "vehicle_type_id": 2
+    },
     {
       "name": "Light",
       "icon": Icons.local_shipping,
-      "api_name": "light_vehicle"
+      "api_name": "light_vehicle",
+      "vehicle_type_id": 3
     },
-    {"name": "Heavy", "icon": Icons.fire_truck, "api_name": "heavy_vehicle"},
+    {
+      "name": "Heavy",
+      "icon": Icons.fire_truck,
+      "api_name": "heavy_vehicle",
+      "vehicle_type_id": 4
+    },
     {
       "name": "Special",
       "icon": Icons.miscellaneous_services,
-      "api_name": "special"
+      "api_name": "special",
+      "vehicle_type_id": 5
     },
   ];
 
@@ -175,6 +193,73 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     });
 
     await _fetchSubscriptionPlans();
+  }
+
+  // New method to create vehicle license after successful subscription
+  Future<bool> _createVehicleLicense() async {
+    try {
+      final userId = await StorageService.getID();
+      if (userId == null) {
+        print("User ID is null, cannot create vehicle license");
+        return false;
+      }
+
+      final selectedVehicleTypeId =
+          vehicleTypes[selectedVehicleIndex]["vehicle_type_id"];
+      final selectedVehicleName = vehicleTypes[selectedVehicleIndex]["name"];
+
+      // Generate a license number (you might want to modify this logic)
+      final licenseNumber =
+          "LIC${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}";
+
+      print(
+          "Creating vehicle license for userId: $userId, vehicleTypeId: $selectedVehicleTypeId");
+
+      final response = await HttpService.post(
+        '/api/mock-exam/admin/user/$userId/licenses',
+        body: {
+          'vehicle_type_id': selectedVehicleTypeId,
+          'license_number': licenseNumber,
+        },
+      );
+
+      if (response['success'] == true) {
+        print("Vehicle license created successfully: $licenseNumber");
+
+        // Show success message to user
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content:
+                  Text('$selectedVehicleName license created: $licenseNumber'),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+        return true;
+      } else {
+        print("Failed to create vehicle license: ${response['error']}");
+        return false;
+      }
+    } catch (e) {
+      print("Error creating vehicle license: $e");
+      return false;
+    }
+  }
+
+  // Method to handle subscription purchase completion
+  Future<void> _onSubscriptionPurchased() async {
+    // Refresh user subscriptions
+    await _fetchUserSubscriptions();
+
+    // Create vehicle license
+    await _createVehicleLicense();
+
+    // Reset selected plan
+    setState(() {
+      selectedPlanIndex = -1;
+    });
   }
 
   // Helper method to calculate progress for current plan
@@ -528,176 +613,286 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       );
     }
 
+    // Check if user has any active subscription
+    final hasActiveSubscription = currentActivePlan != null;
+
     return Column(
-      children: List.generate(currentPlans.length, (index) {
-        final plan = currentPlans[index];
-        final isSelected = selectedPlanIndex == index;
-
-        // Check if user already has this plan
-        final hasCurrentPlan =
-            currentActivePlan != null && currentActivePlan!.plan.id == plan.id;
-
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 17),
-          child: Card(
-            color: isSelected
-                ? const Color.fromARGB(255, 247, 251, 253)
-                : Colors.grey.shade50,
-            shape: RoundedRectangleBorder(
-              side: BorderSide(
-                color: isSelected ? Colors.blue : Colors.transparent,
-                width: 2,
-              ),
-              borderRadius: BorderRadius.circular(12),
+      children: [
+        // Show notification if user has active subscription
+        if (hasActiveSubscription)
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 17, vertical: 10),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.blue.shade50,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.blue.shade200),
             ),
-            elevation: 4,
-            margin: const EdgeInsets.symmetric(vertical: 10),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.calendar_month,
-                        color: Color(0xff219EBC),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(plan.name,
-                            style: const TextStyle(
-                                fontSize: 18, fontWeight: FontWeight.bold)),
-                      ),
-                      if (plan.isPopular)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.orange,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Text(
-                            'Popular',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      if (hasCurrentPlan)
-                        Container(
-                          margin: const EdgeInsets.only(left: 4),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.green,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Text(
-                            'Current',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Text(plan.formattedPrice,
-                      style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 20,
-                          color: Color.fromARGB(255, 0, 0, 0))),
-                  if (plan.description != null && plan.description!.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Text(
-                        plan.description!,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[600],
-                        ),
-                      ),
+            child: Row(
+              children: [
+                Icon(Icons.info_outline, color: Colors.blue.shade700),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'You have an active subscription. To change plans, please contact support or wait for your current plan to expire.',
+                    style: TextStyle(
+                      color: Colors.blue.shade700,
+                      fontSize: 12,
                     ),
-                  const SizedBox(height: 10),
-                  if (plan.displayFeatures.isNotEmpty)
-                    ...plan.displayFeatures.map<Widget>((feature) => Padding(
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+        ...List.generate(currentPlans.length, (index) {
+          final plan = currentPlans[index];
+          final isSelected = selectedPlanIndex == index;
+
+          // Check if user already has this specific plan
+          final hasCurrentPlan = currentActivePlan != null &&
+              currentActivePlan!.plan.id == plan.id;
+
+          // Disable button if user has any active subscription and this is not their current plan
+          final isButtonDisabled = hasActiveSubscription && !hasCurrentPlan;
+
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 17),
+            child: Card(
+              color: hasCurrentPlan
+                  ? const Color.fromARGB(
+                      255, 240, 248, 255) // Highlight current plan
+                  : isButtonDisabled
+                      ? Colors.grey.shade100 // Dim disabled plans
+                      : isSelected
+                          ? const Color.fromARGB(255, 247, 251, 253)
+                          : Colors.grey.shade50,
+              shape: RoundedRectangleBorder(
+                side: BorderSide(
+                  color: hasCurrentPlan
+                      ? Colors.green
+                      : isSelected && !isButtonDisabled
+                          ? Colors.blue
+                          : Colors.transparent,
+                  width: hasCurrentPlan
+                      ? 2
+                      : isSelected && !isButtonDisabled
+                          ? 2
+                          : 1,
+                ),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              elevation: hasCurrentPlan
+                  ? 6
+                  : isButtonDisabled
+                      ? 1
+                      : 4,
+              margin: const EdgeInsets.symmetric(vertical: 10),
+              child: Opacity(
+                opacity: isButtonDisabled ? 0.6 : 1.0,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.calendar_month,
+                            color: hasCurrentPlan
+                                ? Colors.green
+                                : isButtonDisabled
+                                    ? Colors.grey
+                                    : const Color(0xff219EBC),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(plan.name,
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: isButtonDisabled
+                                      ? Colors.grey.shade600
+                                      : Colors.black,
+                                )),
+                          ),
+                          if (plan.isPopular && !isButtonDisabled)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.orange,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Text(
+                                'Popular',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          if (hasCurrentPlan)
+                            Container(
+                              margin: const EdgeInsets.only(left: 4),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.green,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Text(
+                                'Active',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(plan.formattedPrice,
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 20,
+                              color: isButtonDisabled
+                                  ? Colors.grey.shade600
+                                  : Colors.black)),
+                      if (plan.description != null &&
+                          plan.description!.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(
+                            plan.description!,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: isButtonDisabled
+                                  ? Colors.grey.shade500
+                                  : Colors.grey[600],
+                            ),
+                          ),
+                        ),
+                      const SizedBox(height: 10),
+                      if (plan.displayFeatures.isNotEmpty)
+                        ...plan.displayFeatures
+                            .map<Widget>((feature) => Padding(
+                                  padding: const EdgeInsets.only(bottom: 4),
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.check_circle,
+                                          size: 16,
+                                          color: isButtonDisabled
+                                              ? Colors.grey.shade400
+                                              : Colors.green),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          feature,
+                                          style: TextStyle(
+                                            color: isButtonDisabled
+                                                ? Colors.grey.shade600
+                                                : Colors.black,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ))
+                      else
+                        Padding(
                           padding: const EdgeInsets.only(bottom: 4),
                           child: Row(
                             children: [
-                              const Icon(Icons.check_circle,
-                                  size: 16, color: Colors.green),
+                              Icon(Icons.check_circle,
+                                  size: 16,
+                                  color: isButtonDisabled
+                                      ? Colors.grey.shade400
+                                      : Colors.green),
                               const SizedBox(width: 8),
-                              Expanded(child: Text(feature)),
+                              Expanded(
+                                child: Text(
+                                  'Access to all features',
+                                  style: TextStyle(
+                                    color: isButtonDisabled
+                                        ? Colors.grey.shade600
+                                        : Colors.black,
+                                  ),
+                                ),
+                              ),
                             ],
                           ),
-                        ))
-                  else
-                    const Padding(
-                      padding: EdgeInsets.only(bottom: 4),
-                      child: Row(
-                        children: [
-                          Icon(Icons.check_circle,
-                              size: 16, color: Colors.green),
-                          SizedBox(width: 8),
-                          Expanded(child: Text('Access to all features')),
-                        ],
-                      ),
-                    ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                      height: size.height * 0.05,
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          backgroundColor: hasCurrentPlan
-                              ? Colors.grey.shade400
-                              : isSelected
-                                  ? const Color(0xff219EBC)
-                                  : const Color(0xffD7ECFE),
                         ),
-                        onPressed: hasCurrentPlan
-                            ? null
-                            : () {
-                                setState(() {
-                                  selectedPlanIndex = index;
-                                });
-                                if (isSelected) {
-                                  Navigator.push(
-                                    context,
-                                    createFadeRoute(PaymentScreen(
-                                      selectedPlan: plan,
-                                    )),
-                                  );
-                                }
-                              },
-                        child: Text(
-                            hasCurrentPlan
-                                ? "Current Plan"
-                                : isSelected
-                                    ? "Continue to Payment"
-                                    : "Select Plan",
-                            style: TextStyle(
-                              color: hasCurrentPlan
-                                  ? Colors.white
-                                  : isSelected
+                      const SizedBox(height: 12),
+                      SizedBox(
+                          height: size.height * 0.05,
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              backgroundColor: hasCurrentPlan
+                                  ? Colors.green.shade400
+                                  : isButtonDisabled
+                                      ? Colors.grey.shade300
+                                      : isSelected
+                                          ? const Color(0xff219EBC)
+                                          : const Color(0xffD7ECFE),
+                            ),
+                            onPressed: isButtonDisabled
+                                ? null
+                                : hasCurrentPlan
+                                    ? null
+                                    : () {
+                                        setState(() {
+                                          selectedPlanIndex = index;
+                                        });
+                                        if (isSelected) {
+                                          // Pass additional data to PaymentScreen
+                                          Navigator.push(
+                                            context,
+                                            createFadeRoute(PaymentScreen(
+                                              selectedPlan: plan,
+                                              vehicleTypeId: vehicleTypes[
+                                                      selectedVehicleIndex]
+                                                  ["vehicle_type_id"],
+                                              vehicleTypeName: vehicleTypes[
+                                                  selectedVehicleIndex]["name"],
+                                              onSubscriptionCompleted:
+                                                  _onSubscriptionPurchased,
+                                            )),
+                                          );
+                                        }
+                                      },
+                            child: Text(
+                                hasCurrentPlan
+                                    ? "Current Plan"
+                                    : isButtonDisabled
+                                        ? "Subscription Active"
+                                        : isSelected
+                                            ? "Continue to Payment"
+                                            : "Select Plan",
+                                style: TextStyle(
+                                  color: hasCurrentPlan
                                       ? Colors.white
-                                      : const Color(0xff219EBC),
-                            )),
-                      ))
-                ],
+                                      : isButtonDisabled
+                                          ? Colors.grey.shade600
+                                          : isSelected
+                                              ? Colors.white
+                                              : const Color(0xff219EBC),
+                                )),
+                          ))
+                    ],
+                  ),
+                ),
               ),
             ),
-          ),
-        );
-      }),
+          );
+        }),
+      ],
     );
   }
 }
