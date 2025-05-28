@@ -1,9 +1,11 @@
-import 'dart:async'; // Import for Timer
-
+import 'dart:async';
 import 'package:driving_license_exam/component/PreviousButton.dart';
 import 'package:driving_license_exam/component/custompageroute.dart';
 import 'package:driving_license_exam/component/nextbutton.dart';
 import 'package:driving_license_exam/mock_result_screen.dart';
+import 'package:driving_license_exam/models/study_models.dart';
+import 'package:driving_license_exam/services/api_service.dart';
+import 'package:driving_license_exam/services/study_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:just_audio/just_audio.dart';
@@ -11,10 +13,19 @@ import 'package:just_audio/just_audio.dart';
 class MockExamDo extends StatefulWidget {
   final String source;
   final String selectedLanguage;
+  final String selectedLanguageCode;
+  final int? lessonId;
+  final int? vehicleTypeId;
+  final String? userId;
+
   const MockExamDo({
     super.key,
     required this.selectedLanguage,
+    required this.selectedLanguageCode,
     required this.source,
+    this.lessonId,
+    this.vehicleTypeId,
+    this.userId,
   });
 
   @override
@@ -25,29 +36,86 @@ class _MockExamDoState extends State<MockExamDo> {
   int selectedAnswer = -1;
   int currentQuestionIndex = 0;
   List<int> userAnswers = [];
-  late List<Map<String, dynamic>> questions;
+  List<Question> questions = [];
   bool showAnswer = false;
   bool _triggerAnimation = false;
+  bool isLoading = true;
+  String? errorMessage;
 
   // Timer-related variables
   late Timer _timer;
-  int _remainingSeconds = 60 * 60; // 49 minutes and 25 seconds in seconds
+  int _remainingSeconds = 60 * 60; // 60 minutes
   bool _isTimeUp = false;
 
   late AudioPlayer _audioPlayer;
+  String sessionId = DateTime.now().millisecondsSinceEpoch.toString();
 
   @override
   void initState() {
     super.initState();
-    _initializeQuestions();
-    userAnswers = List.filled(questions.length, -1);
-    _startTimer();
     _initializeAudioPlayer();
+    _fetchQuestions();
+    _startTimer();
   }
 
-  void _initializeQuestions() {
-    questions = [
-      if (widget.selectedLanguage == 'English') ...[
+  Future<void> _fetchQuestions() async {
+    try {
+      setState(() {
+        isLoading = true;
+        errorMessage = null;
+      });
+
+      if (widget.lessonId != null && widget.vehicleTypeId != null) {
+        // Fetch real questions from API using your existing service
+        final response = await StudyService.getQuestions(
+          lessonId: widget.lessonId!,
+          vehicleTypeId: widget.vehicleTypeId!,
+          language: widget.selectedLanguageCode,
+        );
+
+        if (response.success && response.data != null) {
+          setState(() {
+            questions = response.data!;
+            userAnswers = List.filled(questions.length, -1);
+            isLoading = false;
+          });
+
+          if (questions.isNotEmpty) {
+            _loadCurrentQuestionAudio();
+          }
+        } else {
+          setState(() {
+            errorMessage = response.message.isNotEmpty
+                ? response.message
+                : 'Failed to load questions';
+            isLoading = false;
+          });
+        }
+      } else {
+        // Fallback to hardcoded questions for demo/mock exams
+        _initializeHardcodedQuestions();
+        setState(() {
+          userAnswers = List.filled(questions.length, -1);
+          isLoading = false;
+        });
+        if (questions.isNotEmpty) {
+          _loadCurrentQuestionAudio();
+        }
+      }
+    } catch (e) {
+      setState(() {
+        errorMessage = 'Error loading questions: ${e.toString()}';
+        isLoading = false;
+      });
+    }
+  }
+
+  void _initializeHardcodedQuestions() {
+    // Fallback hardcoded questions for demo purposes
+    List<Map<String, dynamic>> hardcodedData = [];
+
+    if (widget.selectedLanguage == 'English') {
+      hardcodedData = [
         {
           'question': 'What does this traffic sign indicate?',
           'image': 'assets/images/exam.png',
@@ -73,21 +141,9 @@ class _MockExamDoState extends State<MockExamDo> {
           ],
           'correctAnswer': 1,
         },
-        {
-          'question':
-              'What is the speed limit in urban areas unless otherwise posted?',
-          'image': 'assets/images/exam.png',
-          'audio': 'assets/audio/e3.mp3',
-          'answers': [
-            '40 km/h',
-            '50 km/h',
-            '60 km/h',
-            '70 km/h',
-          ],
-          'correctAnswer': 1,
-        },
-      ],
-      if (widget.selectedLanguage == 'Sinhala') ...[
+      ];
+    } else if (widget.selectedLanguage == 'Sinhala') {
+      hardcodedData = [
         {
           'question': 'මෙම ගමනාගමන සංඥාවෙන් දැක්වෙන්නේ කුමක්ද?',
           'image': 'assets/images/exam.png',
@@ -100,33 +156,9 @@ class _MockExamDoState extends State<MockExamDo> {
           ],
           'correctAnswer': 1,
         },
-        {
-          'question': 'රතු ගමනාගමන ආලෝකයකට ආසන්න වූ විට ඔබ කළ යුත්තේ කුමක්ද?',
-          'image': 'assets/images/redligt.jpg',
-          'audio': 'assets/audio/s2.mp3',
-          'answers': [
-            'වේගයෙන් ඉක්මවා යාමට වේගය ඉහළ නංවන්න',
-            'සම්පූර්ණයෙන් නවතින්න',
-            'මන්දගාමී වන නමුත් ගමන් කරන්න',
-            'වාහන එනවා නොමැති නම් නොසලකා හරින්න',
-          ],
-          'correctAnswer': 1,
-        },
-        {
-          'question':
-              'වෙනත් ලෙස නියම කර නොමැති නම් නාගරික ප්‍රදේශවල වේග සීමාව කොපමණද?',
-          'image': null,
-          'audio': 'assets/audio/s3.mp3',
-          'answers': [
-            'පැයට කි.මී. 40',
-            'පැයට කි.මී. 50',
-            'පැයට කි.මී. 60',
-            'පැයට කි.මී. 70',
-          ],
-          'correctAnswer': 1,
-        },
-      ],
-      if (widget.selectedLanguage == 'Tamil') ...[
+      ];
+    } else if (widget.selectedLanguage == 'Tamil') {
+      hardcodedData = [
         {
           'question': 'இந்த போக்குவரத்து அடையாளம் எதைக் குறிக்கிறது?',
           'image': 'assets/images/exam.png',
@@ -139,45 +171,60 @@ class _MockExamDoState extends State<MockExamDo> {
           ],
           'correctAnswer': 1,
         },
-        {
-          'question':
-              'சிவப்பு போக்குவரத்து விளக்கை நெருங்கும்போது நீங்கள் என்ன செய்ய வேண்டும்?',
-          'image': 'assets/images/redligt.jpg',
-          'audio': 'assets/audio/t2.mp3',
-          'answers': [
-            'விரைவாக கடக்க வேகத்தை அதிகரிக்கவும்',
-            'முழுமையாக நிறுத்தவும்',
-            'மெதுவாக ஆனால் தொடர்ந்து நகரவும்',
-            'வாகனங்கள் வரவில்லை என்றால் புறக்கணிக்கவும்',
-          ],
-          'correctAnswer': 1,
-        },
-        {
-          'question':
-              'வேறுவிதமாக குறிப்பிடப்படாவிட்டால் நகர்ப்புற பகுதிகளில் வேக வரம்பு என்ன?',
-          'image': 'assets/images/exam.png',
-          'audio': 'assets/audio/t3.mp3',
-          'answers': [
-            'மணிக்கு 40 கி.மீ',
-            'மணிக்கு 50 கி.மீ',
-            'மணிக்கு 60 கி.மீ',
-            'மணிக்கு 70 கி.மீ',
-          ],
-          'correctAnswer': 1,
-        },
-      ],
-    ];
+      ];
+    }
+
+    // Convert hardcoded data to Question objects
+    questions = hardcodedData.asMap().entries.map((entry) {
+      final data = entry.value;
+      return Question(
+        id: entry.key + 1,
+        questionText: data['question'],
+        correctOption:
+            (data['correctAnswer'] as int) + 1, // Convert to 1-based indexing
+        explanation: 'This is the correct answer explanation.',
+        vehicleTypeId: widget.vehicleTypeId ?? 2,
+        vehicleTypeName: 'Demo Vehicle',
+        language: widget.selectedLanguageCode,
+        options: (data['answers'] as List<String>)
+            .asMap()
+            .entries
+            .map((answerEntry) {
+          return QuestionOption(
+            optionNumber: answerEntry.key + 1,
+            optionText: answerEntry.value,
+            optionId: (entry.key * 10) + answerEntry.key + 1,
+            audioUrl: null,
+            audioDuration: null,
+          );
+        }).toList(),
+        imageUrl: data['image'],
+        questionAudio: data['audio'],
+        questionAudioDuration: null,
+      );
+    }).toList();
   }
 
   void _initializeAudioPlayer() {
     _audioPlayer = AudioPlayer();
-    _loadCurrentQuestionAudio();
   }
 
   Future<void> _loadCurrentQuestionAudio() async {
+    if (questions.isEmpty) return;
+
     try {
       await _audioPlayer.stop();
-      await _audioPlayer.setAsset(questions[currentQuestionIndex]['audio']);
+      final currentQuestion = questions[currentQuestionIndex];
+
+      if (currentQuestion.questionAudio != null) {
+        if (currentQuestion.questionAudio!.startsWith('assets/')) {
+          // Local asset audio
+          await _audioPlayer.setAsset(currentQuestion.questionAudio!);
+        } else {
+          // Network audio URL
+          await _audioPlayer.setUrl(currentQuestion.questionAudio!);
+        }
+      }
     } catch (e) {
       print("Error loading audio: $e");
     }
@@ -192,7 +239,7 @@ class _MockExamDoState extends State<MockExamDo> {
       }
       await _audioPlayer.play();
     }
-    setState(() {}); // Refresh UI to update icon
+    setState(() {});
   }
 
   void _startTimer() {
@@ -212,10 +259,19 @@ class _MockExamDoState extends State<MockExamDo> {
   }
 
   void _navigateToResultScreen() {
-    // Save the current answer before navigating
     if (selectedAnswer != -1) {
       userAnswers[currentQuestionIndex] = selectedAnswer;
     }
+
+    // Convert Question objects back to the format expected by MockResultScreen
+    List<Map<String, dynamic>> questionData = questions
+        .map((q) => {
+              'question': q.questionText,
+              'answers': q.options.map((opt) => opt.optionText).toList(),
+              'correctAnswer':
+                  q.correctOption - 1, // Convert back to 0-based indexing
+            })
+        .toList();
 
     Navigator.pushReplacement(
       context,
@@ -224,12 +280,11 @@ class _MockExamDoState extends State<MockExamDo> {
         correctAnswers: userAnswers
             .asMap()
             .entries
-            .where(
-                (entry) => entry.value == questions[entry.key]['correctAnswer'])
+            .where((entry) => entry.value == questions[entry.key].correctOption)
             .length,
         source: widget.source,
         userAnswers: userAnswers,
-        questions: questions,
+        questions: questionData,
       )),
     );
   }
@@ -242,7 +297,6 @@ class _MockExamDoState extends State<MockExamDo> {
 
   void _goToNextQuestion() {
     setState(() {
-      //  _triggerAnimation = !_triggerAnimation;
       if (_audioPlayer.playing) {
         _audioPlayer.pause();
       }
@@ -275,64 +329,67 @@ class _MockExamDoState extends State<MockExamDo> {
             _loadCurrentQuestionAudio();
           });
         } else {
-          showDialog(
-            context: context,
-            builder: (BuildContext context) {
-              return AlertDialog(
-                title: const Column(
-                  children: [
-                    Image(
-                      image: AssetImage('assets/images/alert_exam.png'),
-                      height: 100,
-                    ),
-                    SizedBox(height: 26),
-                    Text("Attempt all answer"),
-                  ],
-                ),
-                content:
-                    const Text("Are you sure you want to submit your answers?"),
-                actions: [
-                  Center(
-                    child: Column(
-                      children: [
-                        Container(
-                          width: double.infinity,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(10),
-                            color: const Color(0xFF4378DB),
-                          ),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 20, vertical: 8),
-                          child: TextButton(
-                            child: const Text(
-                              "Submit",
-                              style: TextStyle(color: Colors.white),
-                            ),
-                            onPressed: () {
-                              Navigator.of(context).pop();
-                              _navigateToResultScreen();
-                            },
-                          ),
-                        ),
-                        TextButton(
-                          child: const Text("Cancel",
-                              style: TextStyle(
-                                  color: Color(0xFF4378DB),
-                                  fontWeight: FontWeight.bold)),
-                          onPressed: () {
-                            Navigator.of(context).pop();
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              );
-            },
-          );
+          _showSubmitDialog();
         }
       }
     });
+  }
+
+  void _showSubmitDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Column(
+            children: [
+              Image(
+                image: AssetImage('assets/images/alert_exam.png'),
+                height: 100,
+              ),
+              SizedBox(height: 26),
+              Text("Submit Exam"),
+            ],
+          ),
+          content: const Text("Are you sure you want to submit your answers?"),
+          actions: [
+            Center(
+              child: Column(
+                children: [
+                  Container(
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10),
+                      color: const Color(0xFF4378DB),
+                    ),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                    child: TextButton(
+                      child: const Text(
+                        "Submit",
+                        style: TextStyle(color: Colors.white),
+                      ),
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                        _navigateToResultScreen();
+                      },
+                    ),
+                  ),
+                  TextButton(
+                    child: const Text("Cancel",
+                        style: TextStyle(
+                            color: Color(0xFF4378DB),
+                            fontWeight: FontWeight.bold)),
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   void _goToPreviousQuestion() {
@@ -352,14 +409,81 @@ class _MockExamDoState extends State<MockExamDo> {
 
   @override
   void dispose() {
-    _timer.cancel(); // Cancel the timer to prevent memory leaks
-    super.dispose();
+    _timer.cancel();
     _audioPlayer.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final Size size = MediaQuery.of(context).size;
+
+    if (isLoading) {
+      return const Scaffold(
+        backgroundColor: Color(0xFF0C1A64),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(color: Colors.white),
+              SizedBox(height: 16),
+              Text(
+                'Loading questions...',
+                style: TextStyle(color: Colors.white, fontSize: 16),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (errorMessage != null) {
+      return Scaffold(
+        backgroundColor: const Color(0xFF0C1A64),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(
+                  Icons.error_outline,
+                  size: 64,
+                  color: Colors.white,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  errorMessage!,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: _fetchQuestions,
+                  child: const Text('Retry'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (questions.isEmpty) {
+      return const Scaffold(
+        backgroundColor: Color(0xFF0C1A64),
+        body: Center(
+          child: Text(
+            'No questions available',
+            style: TextStyle(color: Colors.white, fontSize: 16),
+          ),
+        ),
+      );
+    }
+
     final currentQuestion = questions[currentQuestionIndex];
     final isLastQuestion = currentQuestionIndex == questions.length - 1;
 
@@ -371,6 +495,7 @@ class _MockExamDoState extends State<MockExamDo> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Timer and Progress Section
               Container(
                 padding: const EdgeInsets.all(25),
                 decoration: BoxDecoration(
@@ -418,6 +543,8 @@ class _MockExamDoState extends State<MockExamDo> {
                 ),
               ),
               const SizedBox(height: 24),
+
+              // Question Section
               Container(
                 key: ValueKey(
                     'question-$currentQuestionIndex-$_triggerAnimation'),
@@ -433,31 +560,55 @@ class _MockExamDoState extends State<MockExamDo> {
                       alignment: Alignment.topLeft,
                       child: Column(
                         children: [
-                          Align(
-                            alignment: Alignment.topRight,
-                            child: IconButton(
+                          if (currentQuestion.questionAudio != null)
+                            Align(
+                              alignment: Alignment.topRight,
+                              child: IconButton(
                                 onPressed: _toggleAudio,
                                 icon: Icon(
                                   _audioPlayer.playing
                                       ? Icons.pause
                                       : Icons.play_arrow,
-                                )),
+                                ),
+                              ),
+                            ),
+                          Text(
+                            currentQuestion.questionText,
+                            style: const TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 16),
                           ),
-                          Text(currentQuestion['question'],
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.bold, fontSize: 16)),
                         ],
                       ),
                     ),
                     const SizedBox(height: 16),
-                    if (currentQuestion['image'] != null)
+
+                    // Question Image
+                    if (currentQuestion.imageUrl != null)
                       Center(
-                        child: Image.asset(
-                          currentQuestion['image'],
-                          height: 100,
-                        ),
+                        child: currentQuestion.imageUrl!.startsWith('assets/')
+                            ? Image.asset(
+                                currentQuestion.imageUrl!,
+                                height: 100,
+                              )
+                            : Image.network(
+                                currentQuestion.imageUrl!,
+                                height: 100,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return Container(
+                                    height: 100,
+                                    width: 100,
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey[300],
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child:
+                                        const Icon(Icons.image_not_supported),
+                                  );
+                                },
+                              ),
                       ),
                     const SizedBox(height: 16),
+
                     const Align(
                       alignment: Alignment.topLeft,
                       child: Text("Select the correct answer below:",
@@ -486,13 +637,17 @@ class _MockExamDoState extends State<MockExamDo> {
                 ],
               ),
               const SizedBox(height: 24),
+
+              // Options Section
               Expanded(
                 child: ListView.builder(
                   key: ValueKey(
                       'answers-$currentQuestionIndex-$_triggerAnimation'),
-                  itemCount: currentQuestion['answers'].length,
+                  itemCount: currentQuestion.options.length,
                   itemBuilder: (context, index) {
-                    bool isCorrect = index == currentQuestion['correctAnswer'];
+                    final option = currentQuestion.options[index];
+                    bool isCorrect =
+                        option.optionNumber == currentQuestion.correctOption;
                     bool showIndicator =
                         showAnswer && widget.source == 'StudyMaterials';
 
@@ -501,22 +656,22 @@ class _MockExamDoState extends State<MockExamDo> {
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: selectedAnswer == index
+                          color: selectedAnswer == option.optionNumber
                               ? Colors.blue
                               : Colors.grey.shade300,
                         ),
                         color: showIndicator && isCorrect
                             ? Colors.green.shade50
                             : showIndicator &&
-                                    selectedAnswer == index &&
+                                    selectedAnswer == option.optionNumber &&
                                     !isCorrect
                                 ? Colors.red.shade50
-                                : selectedAnswer == index
+                                : selectedAnswer == option.optionNumber
                                     ? Colors.blue.shade50
                                     : Colors.white,
                       ),
                       child: RadioListTile<int>(
-                        value: index,
+                        value: option.optionNumber,
                         groupValue: selectedAnswer,
                         onChanged: (value) {
                           if (!showAnswer ||
@@ -530,7 +685,7 @@ class _MockExamDoState extends State<MockExamDo> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Expanded(
-                              child: Text(currentQuestion['answers'][index]),
+                              child: Text(option.optionText),
                             ),
                             if (showIndicator)
                               Icon(
@@ -562,6 +717,8 @@ class _MockExamDoState extends State<MockExamDo> {
                   ],
                 ),
               ),
+
+              // Navigation Buttons
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [

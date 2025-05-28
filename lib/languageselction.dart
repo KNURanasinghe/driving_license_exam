@@ -6,10 +6,19 @@ import 'package:flutter/material.dart';
 class LanguageSelectionScreen extends StatefulWidget {
   final Color buttonColor;
   final String source;
+  final int? lessonId;
+  final String? lessonTitle;
+  final int? vehicleTypeId;
+  final String? userId;
+
   const LanguageSelectionScreen({
     super.key,
     required this.buttonColor,
     required this.source,
+    this.lessonId,
+    this.lessonTitle,
+    this.vehicleTypeId,
+    this.userId,
   });
 
   @override
@@ -18,9 +27,15 @@ class LanguageSelectionScreen extends StatefulWidget {
 }
 
 class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
-  String selectedLanguage = 'Sinhala';
+  String selectedLanguage = 'English';
 
-  final List<String> languages = ['Sinhala', 'Tamil', 'English'];
+  final Map<String, String> languageMapping = {
+    'English': 'en',
+    'Sinhala': 'si',
+    'Tamil': 'ta',
+  };
+
+  final List<String> languages = ['English', 'Sinhala', 'Tamil'];
 
   @override
   Widget build(BuildContext context) {
@@ -39,7 +54,43 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    SizedBox(height: size.height * 0.22),
+                    SizedBox(height: size.height * 0.15),
+
+                    // Show lesson title if available
+                    if (widget.lessonTitle != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 20),
+                        child: Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: widget.buttonColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: widget.buttonColor.withOpacity(0.3),
+                            ),
+                          ),
+                          child: Column(
+                            children: [
+                              Icon(
+                                Icons.book,
+                                color: widget.buttonColor,
+                                size: 32,
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                widget.lessonTitle!,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                  color: widget.buttonColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+
                     const Text(
                       "Select Your Language",
                       style:
@@ -61,12 +112,13 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
                                   vertical: size.height * 0.02),
                               decoration: BoxDecoration(
                                 color: selectedLanguage == lang
-                                    ? Colors.blue.shade100
+                                    ? widget.buttonColor.withOpacity(0.1)
                                     : Colors.white,
                                 border: Border.all(
                                   color: selectedLanguage == lang
-                                      ? const Color.fromARGB(255, 255, 255, 255)
+                                      ? widget.buttonColor
                                       : Colors.grey.shade300,
+                                  width: selectedLanguage == lang ? 2 : 1,
                                 ),
                                 borderRadius: BorderRadius.circular(10),
                               ),
@@ -77,7 +129,7 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
                                     fontSize: 16,
                                     fontWeight: FontWeight.w500,
                                     color: selectedLanguage == lang
-                                        ? Colors.blue.shade700
+                                        ? widget.buttonColor
                                         : Colors.black,
                                   ),
                                 ),
@@ -92,20 +144,32 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
                       style: TextStyle(fontSize: 15, color: Colors.grey),
                     ),
 
-                    SizedBox(height: size.height * 0.09),
+                    SizedBox(height: size.height * 0.06),
 
-                    // Start Exam Button
+                    // Start Button
                     ElevatedButton(
                       onPressed: () {
+                        String languageCode =
+                            languageMapping[selectedLanguage] ?? 'en';
+
                         Navigator.push(
                           context,
                           createFadeRoute(MockExamDo(
                             selectedLanguage: selectedLanguage,
+                            selectedLanguageCode: languageCode,
                             source: widget.source,
+                            lessonId: widget.lessonId,
+                            vehicleTypeId: widget.vehicleTypeId,
+                            userId: widget.userId,
                           )),
                         );
+
                         print(
-                            "Starting exam in $selectedLanguage from ${widget.source}");
+                            "Starting ${widget.source} in $selectedLanguage ($languageCode)");
+                        if (widget.lessonId != null) {
+                          print(
+                              "Lesson ID: ${widget.lessonId}, Vehicle Type: ${widget.vehicleTypeId}");
+                        }
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: widget.buttonColor,
@@ -116,17 +180,19 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      child: const Text("Start Exam",
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.white,
-                          )),
+                      child: Text(
+                        widget.source == "StudyMaterials"
+                            ? "Start Learning"
+                            : "Start Exam",
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.white,
+                        ),
+                      ),
                     ),
 
                     const SizedBox(height: 20),
-
-                    // Back Button
                   ],
                 ),
               ),

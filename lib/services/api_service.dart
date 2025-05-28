@@ -19,7 +19,18 @@ class StorageService {
   static const String _tokenKey = 'auth_token';
   static const String _userKey = 'user_data';
   static const String _userid = 'user_id';
+  static const String _subid = 'sub_id';
   static const String _currentExamKey = 'current_exam';
+
+  static Future<void> saveSubToken(String id) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_subid, id);
+  }
+
+  static Future<String?> getSubID() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_subid);
+  }
 
   static Future<void> saveToken(String token) async {
     final prefs = await SharedPreferences.getInstance();
