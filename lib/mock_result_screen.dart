@@ -2,9 +2,9 @@ import 'package:driving_license_exam/component/appbar.dart';
 import 'package:driving_license_exam/component/custompageroute.dart';
 import 'package:driving_license_exam/component/reviewbutton.dart' as review_btn;
 import 'package:driving_license_exam/home.dart';
+import 'package:driving_license_exam/models/exam_models.dart';
 import 'package:driving_license_exam/review.dart';
 import 'package:driving_license_exam/services/exam_service.dart';
-import 'package:driving_license_exam/models/exam_models.dart';
 import 'package:flutter/material.dart';
 
 class MockResultScreen extends StatefulWidget {
@@ -86,80 +86,90 @@ class _MockResultScreenState extends State<MockResultScreen> {
 
     // Loading state
     if (isLoading) {
-      return Scaffold(
-        backgroundColor: Colors.white,
-        body: Column(
-          children: [
-            appbar(
-              size: size,
-              bgcolor: const Color(0xff4378DB),
-              textColor: Colors.white,
-              heading: "Loading Results...",
-            ),
-            const Expanded(
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    CircularProgressIndicator(),
-                    SizedBox(height: 16),
-                    Text('Loading your exam results...'),
-                  ],
+      return SingleChildScrollView(
+        child: Scaffold(
+          backgroundColor: Colors.white,
+          body: Column(
+            children: [
+              appbar(
+                size: size,
+                bgcolor: const Color(0xff4378DB),
+                textColor: Colors.white,
+                heading: "Loading Results...",
+              ),
+              const Expanded(
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      CircularProgressIndicator(),
+                      SizedBox(height: 16),
+                      Text('Loading your exam results...'),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       );
     }
 
     // Error state
     if (errorMessage != null) {
-      return Scaffold(
-        backgroundColor: Colors.white,
-        body: Column(
-          children: [
-            appbar(
-              size: size,
-              bgcolor: const Color(0xff4378DB),
-              textColor: Colors.white,
-              heading: "Mock Exam Results",
+      return SingleChildScrollView(
+        child: Scaffold(
+          backgroundColor: Colors.white,
+          body: SingleChildScrollView(
+            child: Column(
+              children: [
+                appbar(
+                  size: size,
+                  bgcolor: const Color(0xff4378DB),
+                  textColor: Colors.white,
+                  heading: "Mock Exam Results",
+                ),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.error_outline,
+                          size: 64, color: Colors.red),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Error loading results',
+                        style: TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 8),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: Text(
+                          errorMessage!,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.grey[600]),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed:
+                            widget.examId != null ? _fetchExamResults : null,
+                        child: const Text('Retry'),
+                      ),
+                      const SizedBox(height: 16),
+                      TextButton(
+                        onPressed: () {
+                          Navigator.push(
+                              context, createFadeRoute(const Home()));
+                        },
+                        child: const Text('Go to Home'),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-            Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.error_outline, size: 64, color: Colors.red),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Error loading results',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    child: Text(
-                      errorMessage!,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.grey[600]),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: widget.examId != null ? _fetchExamResults : null,
-                    child: const Text('Retry'),
-                  ),
-                  const SizedBox(height: 16),
-                  TextButton(
-                    onPressed: () {
-                      Navigator.push(context, createFadeRoute(const Home()));
-                    },
-                    child: const Text('Go to Home'),
-                  ),
-                ],
-              ),
-            ),
-          ],
+          ),
         ),
       );
     }
@@ -237,61 +247,66 @@ class _MockResultScreenState extends State<MockResultScreen> {
 
           // Result Section
           Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Stack(
-                  children: [
-                    Image.asset(
-                      width: size.width,
-                      fit: size.width < 400 ? BoxFit.cover : BoxFit.contain,
-                      isPassed
-                          ? 'assets/images/pass.png'
-                          : 'assets/images/fail.png',
-                    ),
-                    Positioned(
-                      top: size.height * 0.29,
-                      left: size.width * 0.2,
-                      right: size.width * 0.2,
-                      child: Center(
-                        child: Column(
-                          children: [
-                            Text(
-                              isPassed ? "Congratulations!" : "Try Again 😔",
-                              style: TextStyle(
-                                fontSize: 27,
-                                fontWeight: FontWeight.bold,
-                                color:
-                                    isPassed ? Colors.green : Colors.redAccent,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              isPassed
-                                  ? "You passed the ${widget.source == 'MockExam' || examResult != null ? 'Mock Exam' : 'Study Materials'}"
-                                  : "You failed the ${widget.source == 'MockExam' || examResult != null ? 'Mock Exam' : 'Study Materials'}",
-                              style: const TextStyle(fontSize: 20),
-                              textAlign: TextAlign.center,
-                            ),
-                            if (examResult != null) ...[
-                              const SizedBox(height: 8),
-                              Text(
-                                "Grade: $grade",
-                                style: TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                  color:
-                                      isPassed ? Colors.green : Colors.orange,
-                                ),
-                              ),
-                            ],
-                          ],
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Stack(
+                    children: [
+                      SingleChildScrollView(
+                        child: Image.asset(
+                          width: size.width,
+                          fit: size.width < 400 ? BoxFit.cover : BoxFit.contain,
+                          isPassed
+                              ? 'assets/images/pass.png'
+                              : 'assets/images/fail.png',
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ],
+                      Positioned(
+                        top: size.height * 0.29,
+                        left: size.width * 0.2,
+                        right: size.width * 0.2,
+                        child: Center(
+                          child: Column(
+                            children: [
+                              Text(
+                                isPassed ? "Congratulations!" : "Try Again 😔",
+                                style: TextStyle(
+                                  fontSize: 27,
+                                  fontWeight: FontWeight.bold,
+                                  color: isPassed
+                                      ? Colors.green
+                                      : Colors.redAccent,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                isPassed
+                                    ? "You passed the ${widget.source == 'MockExam' || examResult != null ? 'Mock Exam' : 'Study Materials'}"
+                                    : "You failed the ${widget.source == 'MockExam' || examResult != null ? 'Mock Exam' : 'Study Materials'}",
+                                style: const TextStyle(fontSize: 20),
+                                textAlign: TextAlign.center,
+                              ),
+                              if (examResult != null) ...[
+                                const SizedBox(height: 8),
+                                Text(
+                                  "Grade: $grade",
+                                  style: TextStyle(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.bold,
+                                    color:
+                                        isPassed ? Colors.green : Colors.orange,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
 
