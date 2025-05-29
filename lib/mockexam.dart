@@ -1,11 +1,11 @@
 import 'dart:async';
+
 import 'package:driving_license_exam/component/PreviousButton.dart';
 import 'package:driving_license_exam/component/custompageroute.dart';
 import 'package:driving_license_exam/component/nextbutton.dart';
 import 'package:driving_license_exam/mock_result_screen.dart';
-import 'package:driving_license_exam/models/study_models.dart';
 import 'package:driving_license_exam/models/exam_models.dart';
-import 'package:driving_license_exam/services/api_service.dart';
+import 'package:driving_license_exam/models/study_models.dart';
 import 'package:driving_license_exam/services/exam_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -47,9 +47,8 @@ class _MockExamDoState extends State<MockExamDo> {
   bool isLoading = true;
   String? errorMessage;
 
-  // Timer-related variables
   late Timer _timer;
-  int _remainingSeconds = 60 * 60; // Default 60 minutes
+  int _remainingSeconds = 60 * 60;
   bool _isTimeUp = false;
 
   late AudioPlayer _audioPlayer;
@@ -62,6 +61,8 @@ class _MockExamDoState extends State<MockExamDo> {
   List<ExamQuestion> mockExamQuestions = [];
   String? currentExamId;
   ExamData? examData;
+
+  bool isAutoPlayEnabled = false;
 
   @override
   void initState() {
@@ -270,6 +271,10 @@ class _MockExamDoState extends State<MockExamDo> {
         } else {
           await _audioPlayer.setUrl(audioUrl);
         }
+        // Play audio automatically only if isAutoPlayEnabled is true
+        if (isAutoPlayEnabled) {
+          await _audioPlayer.play();
+        }
       }
     } catch (e) {
       print("Error loading audio: $e");
@@ -279,13 +284,19 @@ class _MockExamDoState extends State<MockExamDo> {
   void _toggleAudio() async {
     if (_audioPlayer.playing) {
       await _audioPlayer.pause();
+      setState(() {
+        isAutoPlayEnabled = false; // Disable auto-play for subsequent questions
+      });
     } else {
       if (_audioPlayer.duration == null) {
         await _loadCurrentQuestionAudio();
       }
       await _audioPlayer.play();
+      setState(() {
+        isAutoPlayEnabled = true; // Enable auto-play for subsequent questions
+      });
     }
-    setState(() {});
+    setState(() {}); // Update UI to reflect play/pause icon
   }
 
   void _startTimer() {
