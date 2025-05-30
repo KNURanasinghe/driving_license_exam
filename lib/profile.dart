@@ -8,6 +8,8 @@ import 'package:driving_license_exam/services/subscription_service.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'models/user_models.dart';
+
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
@@ -29,7 +31,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
-    // 🔥 FIX: Call getData() in initState to load user details
     _initializeData();
   }
 
@@ -80,23 +81,94 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> getData() async {
     try {
       print('=== Getting User Data for Profile ===');
+
+      // Get both sources of data
       final user = await StorageService.getUser();
       final prefs = await SharedPreferences.getInstance();
-      final String? savedProfileImageUrl = prefs.getString('profile_image_url');
+
+      // Priority order for profile image URL:
+      // 1. SharedPreferences (most recent update)
+      // 2. User object from StorageService
+      // 3. Fallback to null
+      String? savedProfileImageUrl = prefs.getString('profile_image_url');
+      String? userProfileImageUrl = user?.profilePhotoUrl;
+
+      // Use SharedPreferences value if it exists and is not empty, otherwise use user data
+      String? finalProfileImageUrl;
+      if (savedProfileImageUrl != null && savedProfileImageUrl.isNotEmpty) {
+        finalProfileImageUrl = savedProfileImageUrl;
+        print(
+            'Using profile image from SharedPreferences: $savedProfileImageUrl');
+      } else if (userProfileImageUrl != null &&
+          userProfileImageUrl.isNotEmpty) {
+        finalProfileImageUrl = userProfileImageUrl;
+        print('Using profile image from User object: $userProfileImageUrl');
+        // Sync SharedPreferences with user data
+        await prefs.setString('profile_image_url', userProfileImageUrl);
+      } else {
+        finalProfileImageUrl = null;
+        print('No profile image found');
+      }
 
       if (user != null) {
         print('User found: ${user.name}, ${user.email}, ${user.dateOfBirth}');
+        print('Final profile image URL: $finalProfileImageUrl');
+
         setState(() {
           name = user.name;
           email = user.email;
           date = user.dateOfBirth;
-          profileImageUrl = savedProfileImageUrl;
+          profileImageUrl = finalProfileImageUrl;
         });
+
+        // If there's a mismatch, update the user object with the latest profile image
+        if (finalProfileImageUrl != userProfileImageUrl) {
+          print('Updating user object with latest profile image URL');
+          // Create updated user object and save it
+          final updatedUser = User(
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            dateOfBirth: user.dateOfBirth,
+            profilePhotoUrl: finalProfileImageUrl,
+            createdAt: user.createdAt,
+            updatedAt: user.updatedAt,
+            // Add other user properties as needed
+          );
+          await StorageService.saveUser(updatedUser);
+        }
       } else {
         print('No user data found in storage');
       }
     } catch (e) {
       print('Error getting user data: $e');
+    }
+  }
+
+  // Method to refresh profile data (called after returning from edit profile)
+  Future<void> _refreshProfileData() async {
+    try {
+      print('=== Refreshing Profile Data ===');
+
+      // Force refresh from both sources
+      final user = await StorageService.getUser();
+      final prefs = await SharedPreferences.getInstance();
+      final String? latestProfileImageUrl =
+          prefs.getString('profile_image_url');
+
+      print('Refreshed user: ${user?.name}');
+      print('Refreshed profile image URL: $latestProfileImageUrl');
+
+      if (user != null) {
+        setState(() {
+          name = user.name;
+          email = user.email;
+          date = user.dateOfBirth;
+          profileImageUrl = latestProfileImageUrl ?? user.profilePhotoUrl;
+        });
+      }
+    } catch (e) {
+      print('Error refreshing profile data: $e');
     }
   }
 
@@ -185,7 +257,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       // If profile was updated successfully, refresh the data
       if (result == true) {
-        await _initializeData();
+        print('Returned from edit profile, refreshing data...');
+        await _refreshProfileData();
+        await _fetchUserSubscription(); // Also refresh subscription in case of any changes
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Profile updated successfully!'),
@@ -235,6 +309,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 // Clear storage before logout
                 await StorageService.clearStorage();
 
+                // Also clear SharedPreferences to ensure clean state
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.clear();
+
                 // Navigate to login and clear all previous routes
                 Navigator.of(context).pushAndRemoveUntil(
                   createFadeRoute(const LoginScreen()),
@@ -280,18 +358,51 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    // Fixed profile image to show network image if available
+                    // Enhanced profile image with better error handling
                     CircleAvatar(
                       radius: 50,
-                      backgroundImage: profileImageUrl != null &&
-                              profileImageUrl!.isNotEmpty
-                          ? NetworkImage(
-                                  'http://88.222.215.134:3000$profileImageUrl')
-                              as ImageProvider
-                          : const AssetImage('assets/images/profile.png'),
-                      onBackgroundImageError: (exception, stackTrace) {
-                        print('Error loading profile image: $exception');
-                      },
+                      backgroundColor: Colors.grey[300],
+                      child: ClipOval(
+                        child: profileImageUrl != null &&
+                                profileImageUrl!.isNotEmpty
+                            ? Image.network(
+                                'http://88.222.215.134:3000$profileImageUrl',
+                                width: 100,
+                                height: 100,
+                                fit: BoxFit.cover,
+                                loadingBuilder:
+                                    (context, child, loadingProgress) {
+                                  if (loadingProgress == null) return child;
+                                  return Center(
+                                    child: CircularProgressIndicator(
+                                      value:
+                                          loadingProgress.expectedTotalBytes !=
+                                                  null
+                                              ? loadingProgress
+                                                      .cumulativeBytesLoaded /
+                                                  loadingProgress
+                                                      .expectedTotalBytes!
+                                              : null,
+                                    ),
+                                  );
+                                },
+                                errorBuilder: (context, error, stackTrace) {
+                                  print('Error loading profile image: $error');
+                                  return Image.asset(
+                                    'assets/images/profile.png',
+                                    width: 100,
+                                    height: 100,
+                                    fit: BoxFit.cover,
+                                  );
+                                },
+                              )
+                            : Image.asset(
+                                'assets/images/profile.png',
+                                width: 100,
+                                height: 100,
+                                fit: BoxFit.cover,
+                              ),
+                      ),
                     ),
                     const SizedBox(height: 10),
                     Text(
@@ -352,7 +463,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       width: MediaQuery.of(context).size.width,
                       padding: const EdgeInsets.symmetric(horizontal: 0),
                       child: ElevatedButton(
-                        // Fixed: Now calls the proper navigation method with parameters
                         onPressed: _navigateToEditProfile,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFFEBF6FF),
@@ -465,9 +575,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             width: MediaQuery.of(context).size.width,
             child: ElevatedButton(
               onPressed: () {
-                // Navigate to subscription screen (assuming you have bottom navigation)
                 Navigator.pop(context);
-                // You might need to implement navigation to subscription tab
               },
               style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xff219EBC)),
@@ -495,7 +603,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         const SizedBox(height: 6),
         Text('Expires in ${currentActivePlan!.formattedTimeRemaining}'),
         const Divider(),
-        // Show dynamic features based on the plan
         ...currentActivePlan!.plan.displayFeatures.map(
           (feature) => ListTile(
             dense: true,
@@ -504,7 +611,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             title: Text(feature),
           ),
         ),
-        // If no features available, show default ones
         if (currentActivePlan!.plan.displayFeatures.isEmpty) ...[
           const ListTile(
             dense: true,
@@ -532,9 +638,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           width: MediaQuery.of(context).size.width,
           child: ElevatedButton(
             onPressed: () {
-              // Navigate to subscription management
               Navigator.pop(context);
-              // You might need to implement navigation to subscription tab
             },
             style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xff219EBC)),

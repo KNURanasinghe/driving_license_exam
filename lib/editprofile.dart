@@ -43,6 +43,11 @@ class _EditprofileState extends State<Editprofile> {
   DateTime? _selectedDate;
   bool _showPasswordFields = false;
 
+  // Store original values for comparison
+  String? _originalName;
+  String? _originalDateOfBirth;
+  String? _originalProfileImageUrl;
+
   @override
   void initState() {
     super.initState();
@@ -54,6 +59,11 @@ class _EditprofileState extends State<Editprofile> {
     _nameController = TextEditingController(text: widget.name ?? '');
     _dobController = TextEditingController(text: widget.dateOfBirth ?? '');
     _currentProfileImageUrl = widget.profileImageUrl;
+
+    // Store original values
+    _originalName = widget.name ?? '';
+    _originalDateOfBirth = widget.dateOfBirth ?? '';
+    _originalProfileImageUrl = widget.profileImageUrl;
 
     if (widget.dateOfBirth != null && widget.dateOfBirth!.isNotEmpty) {
       try {
@@ -71,8 +81,10 @@ class _EditprofileState extends State<Editprofile> {
         setState(() {
           if (_nameController.text.isEmpty) {
             _nameController.text = user.name ?? '';
+            _originalName = user.name ?? '';
           }
           _currentProfileImageUrl ??= user.profilePhotoUrl;
+          _originalProfileImageUrl ??= user.profilePhotoUrl;
         });
       }
     } catch (e) {
@@ -213,11 +225,29 @@ class _EditprofileState extends State<Editprofile> {
     );
   }
 
+  // Check if profile data has changed
+  bool _hasProfileDataChanged() {
+    bool nameChanged =
+        _nameController.text.trim() != (_originalName ?? '').trim();
+    bool dateChanged =
+        _dobController.text.trim() != (_originalDateOfBirth ?? '').trim();
+    bool passwordChanged =
+        _showPasswordFields && _passwordController.text.isNotEmpty;
+
+    return nameChanged || dateChanged || passwordChanged;
+  }
+
+  // Check if image has changed
+  bool _hasImageChanged() {
+    return _selectedImage != null;
+  }
+
   Future<void> _saveChanges() async {
     if (!_formKey.currentState!.validate()) {
       return;
     }
 
+    // Validate password match if password fields are shown
     if (_showPasswordFields &&
         _passwordController.text.isNotEmpty &&
         _passwordController.text != _confirmPasswordController.text) {
@@ -230,14 +260,15 @@ class _EditprofileState extends State<Editprofile> {
     });
 
     try {
-      bool hasTextChanges = _nameController.text != (widget.name ?? '') ||
-          (_showPasswordFields && _passwordController.text.isNotEmpty) ||
-          (_selectedDate != null &&
-              _dobController.text != (widget.dateOfBirth ?? ''));
+      bool hasProfileDataChanges = _hasProfileDataChanged();
+      bool hasImageChanges = _hasImageChanged();
 
+      // Track what was updated for success message
+      List<String> updatedItems = [];
       User? updatedUser;
 
-      if (hasTextChanges) {
+      // Update profile data if there are changes
+      if (hasProfileDataChanges) {
         String? dateOfBirthForApi;
         if (_selectedDate != null) {
           dateOfBirthForApi = _selectedDate!.toIso8601String().split('T')[0];
@@ -245,7 +276,9 @@ class _EditprofileState extends State<Editprofile> {
 
         final updateResponse = await UserService.updateUser(
           userId: widget.userId,
-          name: _nameController.text.isNotEmpty ? _nameController.text : null,
+          name: _nameController.text.trim().isNotEmpty
+              ? _nameController.text.trim()
+              : null,
           password: (_showPasswordFields && _passwordController.text.isNotEmpty)
               ? _passwordController.text
               : null,
@@ -253,16 +286,16 @@ class _EditprofileState extends State<Editprofile> {
         );
 
         if (!updateResponse.success) {
-          throw Exception(updateResponse.message ?? 'Failed to update profile');
+          throw Exception(
+              updateResponse.message ?? 'Failed to update profile data');
         }
 
         updatedUser = updateResponse.data;
-        if (updatedUser != null) {
-          await StorageService.saveUser(updatedUser);
-        }
+        updatedItems.add('profile information');
       }
 
-      if (_selectedImage != null) {
+      // Update profile image if there's a new image
+      if (hasImageChanges) {
         final uploadResponse = await UserService.uploadProfilePhoto(
           userId: widget.userId,
           photoFile: _selectedImage!,
@@ -274,27 +307,111 @@ class _EditprofileState extends State<Editprofile> {
         }
 
         updatedUser = uploadResponse.data;
-        if (updatedUser != null) {
-          await StorageService.saveUser(updatedUser);
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setString(
-              'profile_image_url', updatedUser.profilePhotoUrl ?? '');
-          setState(() {
-            _currentProfileImageUrl = updatedUser!.profilePhotoUrl;
-            _selectedImage = null; // Clear local file after successful upload
-          });
-        }
+        updatedItems.add('profile image');
       }
 
-      if (hasTextChanges || _selectedImage != null) {
-        _showSuccessSnackBar('Profile updated successfully!');
+      // Ensure proper data synchronization
+      if (updatedUser != null) {
+        // 1. Save complete updated user to StorageService
+        await StorageService.saveUser(updatedUser);
+
+        // 2. Update SharedPreferences with latest profile image URL
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(
+            'profile_image_url', updatedUser.profilePhotoUrl ?? '');
+
+        // 3. Update local state
+        setState(() {
+          if (hasImageChanges) {
+            _currentProfileImageUrl = updatedUser!.profilePhotoUrl;
+            _selectedImage = null;
+            _originalProfileImageUrl = updatedUser.profilePhotoUrl;
+          }
+          if (hasProfileDataChanges) {
+            _originalName = _nameController.text.trim();
+            _originalDateOfBirth = _dobController.text;
+            // Clear password fields after successful update
+            if (_showPasswordFields) {
+              _passwordController.clear();
+              _confirmPasswordController.clear();
+              _showPasswordFields = false;
+            }
+          }
+        });
+
+        print('Data synchronization completed:');
+        print(
+            'StorageService user: ${updatedUser.name}, ${updatedUser.profilePhotoUrl}');
+        print(
+            'SharedPreferences profile_image_url: ${updatedUser.profilePhotoUrl}');
+      }
+
+      // Show appropriate message based on what was updated
+      if (updatedItems.isNotEmpty) {
+        String message = 'Updated: ${updatedItems.join(' and ')}';
+        _showSuccessSnackBar(message);
         Navigator.pop(context, true);
       } else {
-        _showErrorSnackBar('No changes made to profile');
+        _showErrorSnackBar('No changes detected');
       }
     } catch (e) {
       print('Error updating profile: $e');
       _showErrorSnackBar('Failed to update profile: ${e.toString()}');
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  // Method to save only profile image
+  Future<void> _saveImageOnly() async {
+    if (_selectedImage == null) {
+      _showErrorSnackBar('No image selected');
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final uploadResponse = await UserService.uploadProfilePhoto(
+        userId: widget.userId,
+        photoFile: _selectedImage!,
+      );
+
+      if (!uploadResponse.success) {
+        throw Exception(
+            uploadResponse.message ?? 'Failed to upload profile photo');
+      }
+
+      final updatedUser = uploadResponse.data;
+      if (updatedUser != null) {
+        // 1. Save updated user to StorageService
+        await StorageService.saveUser(updatedUser);
+
+        // 2. Save profile image URL to SharedPreferences
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(
+            'profile_image_url', updatedUser.profilePhotoUrl ?? '');
+
+        // 3. Update local state
+        setState(() {
+          _currentProfileImageUrl = updatedUser.profilePhotoUrl;
+          _selectedImage = null;
+          _originalProfileImageUrl = updatedUser.profilePhotoUrl;
+        });
+
+        print('Image saved successfully:');
+        print('StorageService user updated: ${updatedUser.profilePhotoUrl}');
+        print('SharedPreferences updated: ${updatedUser.profilePhotoUrl}');
+      }
+
+      _showSuccessSnackBar('Profile image updated successfully!');
+    } catch (e) {
+      print('Error updating profile image: $e');
+      _showErrorSnackBar('Failed to update profile image: ${e.toString()}');
     } finally {
       setState(() {
         _isLoading = false;
@@ -334,6 +451,8 @@ class _EditprofileState extends State<Editprofile> {
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
+    bool hasProfileChanges = _hasProfileDataChanged();
+    bool hasImageChanges = _hasImageChanged();
 
     return Scaffold(
       backgroundColor: const Color.fromARGB(255, 255, 255, 255),
@@ -394,26 +513,59 @@ class _EditprofileState extends State<Editprofile> {
                               ],
                             ),
                           ),
-                          Container(
-                            width: MediaQuery.of(context).size.width * 0.5,
-                            padding: const EdgeInsets.symmetric(horizontal: 0),
-                            child: ElevatedButton(
-                              onPressed: _showImagePickerDialog,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFFEBF6FF),
-                                foregroundColor: Colors.black,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
+                          Column(
+                            children: [
+                              Container(
+                                width: MediaQuery.of(context).size.width * 0.5,
                                 padding:
-                                    const EdgeInsets.symmetric(vertical: 16),
+                                    const EdgeInsets.symmetric(horizontal: 0),
+                                child: ElevatedButton(
+                                  onPressed: _showImagePickerDialog,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFFEBF6FF),
+                                    foregroundColor: Colors.black,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 16),
+                                  ),
+                                  child: const Text(
+                                    'Change Image',
+                                    style:
+                                        TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                ),
                               ),
-                              child: const Text(
-                                'Change profile Image',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                            ),
-                          )
+                              // Add button to save image only if image is selected
+                              if (hasImageChanges) ...[
+                                const SizedBox(height: 8),
+                                Container(
+                                  width:
+                                      MediaQuery.of(context).size.width * 0.5,
+                                  child: ElevatedButton(
+                                    onPressed:
+                                        _isLoading ? null : _saveImageOnly,
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xff219EBC),
+                                      foregroundColor: Colors.white,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                          vertical: 12),
+                                    ),
+                                    child: const Text(
+                                      'Save Image',
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
                         ],
                       ),
                       const SizedBox(height: 30),
@@ -590,43 +742,74 @@ class _EditprofileState extends State<Editprofile> {
                         ),
                       ),
                       const SizedBox(height: 25),
-                      Container(
-                        width: MediaQuery.of(context).size.width,
-                        padding: const EdgeInsets.symmetric(horizontal: 0),
-                        child: ElevatedButton(
-                          onPressed: _isLoading ? null : _saveChanges,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xff219EBC),
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(20),
+                      // Main save button - only show if there are profile data changes
+                      if (hasProfileChanges) ...[
+                        Container(
+                          width: MediaQuery.of(context).size.width,
+                          padding: const EdgeInsets.symmetric(horizontal: 0),
+                          child: ElevatedButton(
+                            onPressed: _isLoading ? null : _saveChanges,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xff219EBC),
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 16),
                             ),
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                          ),
-                          child: _isLoading
-                              ? const Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    SizedBox(
-                                      width: 20,
-                                      height: 20,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        valueColor:
-                                            AlwaysStoppedAnimation<Color>(
-                                                Colors.white),
+                            child: _isLoading
+                                ? const Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          valueColor:
+                                              AlwaysStoppedAnimation<Color>(
+                                                  Colors.white),
+                                        ),
                                       ),
-                                    ),
-                                    SizedBox(width: 10),
-                                    Text('Saving...'),
-                                  ],
-                                )
-                              : const Text(
-                                  'Save & Change',
-                                  style: TextStyle(fontWeight: FontWeight.bold),
-                                ),
+                                      SizedBox(width: 10),
+                                      Text('Saving...'),
+                                    ],
+                                  )
+                                : const Text(
+                                    'Save Changes',
+                                    style:
+                                        TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                          ),
                         ),
-                      ),
+                        const SizedBox(height: 10),
+                      ],
+
+                      // Alternative save all button if no individual changes detected
+                      if (!hasProfileChanges && !hasImageChanges) ...[
+                        Container(
+                          width: MediaQuery.of(context).size.width,
+                          padding: const EdgeInsets.symmetric(horizontal: 0),
+                          child: ElevatedButton(
+                            onPressed: () {
+                              _showErrorSnackBar('No changes detected');
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.grey,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                            ),
+                            child: const Text(
+                              'No Changes to Save',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ),
+                      ],
+
                       SizedBox(height: size.height * 0.1),
                     ],
                   ),
