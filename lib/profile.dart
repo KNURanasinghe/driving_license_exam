@@ -283,10 +283,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     // Fixed profile image to show network image if available
                     CircleAvatar(
                       radius: 50,
-                      backgroundImage:
-                          profileImageUrl != null && profileImageUrl!.isNotEmpty
-                              ? NetworkImage(profileImageUrl!) as ImageProvider
-                              : const AssetImage('assets/images/profile.png'),
+                      backgroundImage: profileImageUrl != null &&
+                              profileImageUrl!.isNotEmpty
+                          ? NetworkImage(
+                                  'http://88.222.215.134:3000$profileImageUrl')
+                              as ImageProvider
+                          : const AssetImage('assets/images/profile.png'),
                       onBackgroundImageError: (exception, stackTrace) {
                         print('Error loading profile image: $exception');
                       },

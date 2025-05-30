@@ -1,12 +1,13 @@
 import 'dart:io';
-
 import 'package:driving_license_exam/component/appbar.dart';
 import 'package:driving_license_exam/component/backbutton.dart';
 import 'package:driving_license_exam/services/api_service.dart';
-import 'package:driving_license_exam/services/user_service.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import 'models/user_models.dart';
+import 'services/user_service.dart';
 
 class Editprofile extends StatefulWidget {
   final String userId;
@@ -19,7 +20,7 @@ class Editprofile extends StatefulWidget {
     required this.userId,
     this.name,
     this.dateOfBirth,
-    this.profileImageUrl,
+    required this.profileImageUrl,
   });
 
   @override
@@ -54,7 +55,6 @@ class _EditprofileState extends State<Editprofile> {
     _dobController = TextEditingController(text: widget.dateOfBirth ?? '');
     _currentProfileImageUrl = widget.profileImageUrl;
 
-    // Parse the date if provided
     if (widget.dateOfBirth != null && widget.dateOfBirth!.isNotEmpty) {
       try {
         _selectedDate = _parseDateFromString(widget.dateOfBirth!);
@@ -72,6 +72,7 @@ class _EditprofileState extends State<Editprofile> {
           if (_nameController.text.isEmpty) {
             _nameController.text = user.name ?? '';
           }
+          _currentProfileImageUrl ??= user.profilePhotoUrl;
         });
       }
     } catch (e) {
@@ -81,23 +82,19 @@ class _EditprofileState extends State<Editprofile> {
 
   DateTime? _parseDateFromString(String dateString) {
     try {
-      // Handle different date formats
       if (dateString.contains('-')) {
         return DateTime.parse(dateString);
       } else if (dateString.contains('/')) {
-        // Handle DD/MM/YYYY format
         List<String> parts = dateString.split('/');
         if (parts.length == 3) {
           return DateTime(
               int.parse(parts[2]), int.parse(parts[1]), int.parse(parts[0]));
         }
       } else {
-        // Parse format like "25 Jan 1990"
         List<String> parts = dateString.split(' ');
         if (parts.length == 3) {
           int day = int.parse(parts[0]);
           int year = int.parse(parts[2]);
-
           Map<String, int> months = {
             'Jan': 1,
             'Feb': 2,
@@ -112,7 +109,6 @@ class _EditprofileState extends State<Editprofile> {
             'Nov': 11,
             'Dec': 12
           };
-
           int month = months[parts[1]] ?? 1;
           return DateTime(year, month, day);
         }
@@ -126,8 +122,8 @@ class _EditprofileState extends State<Editprofile> {
   Future<void> _selectDate(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: _selectedDate ??
-          DateTime.now().subtract(const Duration(days: 6570)), // 18 years ago
+      initialDate:
+          _selectedDate ?? DateTime.now().subtract(const Duration(days: 6570)),
       firstDate: DateTime(1900),
       lastDate: DateTime.now(),
     );
@@ -146,14 +142,16 @@ class _EditprofileState extends State<Editprofile> {
       final ImagePicker picker = ImagePicker();
       final XFile? image = await picker.pickImage(
         source: ImageSource.gallery,
-        maxWidth: 1800,
-        maxHeight: 1800,
-        imageQuality: 85,
+        maxWidth: 800,
+        maxHeight: 800,
+        imageQuality: 70,
       );
 
       if (image != null) {
         setState(() {
           _selectedImage = File(image.path);
+          _currentProfileImageUrl =
+              null; // Clear network image to show local file
         });
       }
     } catch (e) {
@@ -166,14 +164,16 @@ class _EditprofileState extends State<Editprofile> {
       final ImagePicker picker = ImagePicker();
       final XFile? image = await picker.pickImage(
         source: ImageSource.camera,
-        maxWidth: 1800,
-        maxHeight: 1800,
-        imageQuality: 85,
+        maxWidth: 800,
+        maxHeight: 800,
+        imageQuality: 70,
       );
 
       if (image != null) {
         setState(() {
           _selectedImage = File(image.path);
+          _currentProfileImageUrl =
+              null; // Clear network image to show local file
         });
       }
     } catch (e) {
@@ -218,7 +218,6 @@ class _EditprofileState extends State<Editprofile> {
       return;
     }
 
-    // Check if passwords match
     if (_showPasswordFields &&
         _passwordController.text.isNotEmpty &&
         _passwordController.text != _confirmPasswordController.text) {
@@ -231,17 +230,16 @@ class _EditprofileState extends State<Editprofile> {
     });
 
     try {
-      // Check what has changed
       bool hasTextChanges = _nameController.text != (widget.name ?? '') ||
           (_showPasswordFields && _passwordController.text.isNotEmpty) ||
           (_selectedDate != null &&
               _dobController.text != (widget.dateOfBirth ?? ''));
 
-      // First, update text fields if any changes were made
+      User? updatedUser;
+
       if (hasTextChanges) {
         String? dateOfBirthForApi;
         if (_selectedDate != null) {
-          // Convert to ISO format for API
           dateOfBirthForApi = _selectedDate!.toIso8601String().split('T')[0];
         }
 
@@ -258,13 +256,12 @@ class _EditprofileState extends State<Editprofile> {
           throw Exception(updateResponse.message ?? 'Failed to update profile');
         }
 
-        // Update local storage with new user data
-        if (updateResponse.data != null) {
-          await StorageService.saveUser(updateResponse.data!);
+        updatedUser = updateResponse.data;
+        if (updatedUser != null) {
+          await StorageService.saveUser(updatedUser);
         }
       }
 
-      // Then, upload profile photo if selected
       if (_selectedImage != null) {
         final uploadResponse = await UserService.uploadProfilePhoto(
           userId: widget.userId,
@@ -276,19 +273,25 @@ class _EditprofileState extends State<Editprofile> {
               uploadResponse.message ?? 'Failed to upload profile photo');
         }
 
-        // Update local storage with profile image URL
-        if (uploadResponse.data != null) {
+        updatedUser = uploadResponse.data;
+        if (updatedUser != null) {
+          await StorageService.saveUser(updatedUser);
           final prefs = await SharedPreferences.getInstance();
           await prefs.setString(
-              'profile_image_url', uploadResponse.data!.profilePhotoUrl ?? '');
-          await StorageService.saveUser(uploadResponse.data!);
+              'profile_image_url', updatedUser.profilePhotoUrl ?? '');
+          setState(() {
+            _currentProfileImageUrl = updatedUser!.profilePhotoUrl;
+            _selectedImage = null; // Clear local file after successful upload
+          });
         }
       }
 
-      _showSuccessSnackBar('Profile updated successfully!');
-
-      // Go back to profile screen with updated data
-      Navigator.pop(context, true); // Return true to indicate successful update
+      if (hasTextChanges || _selectedImage != null) {
+        _showSuccessSnackBar('Profile updated successfully!');
+        Navigator.pop(context, true);
+      } else {
+        _showErrorSnackBar('No changes made to profile');
+      }
     } catch (e) {
       print('Error updating profile: $e');
       _showErrorSnackBar('Failed to update profile: ${e.toString()}');
@@ -352,7 +355,6 @@ class _EditprofileState extends State<Editprofile> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      // Profile Image Section
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceAround,
                         children: [
@@ -368,7 +370,7 @@ class _EditprofileState extends State<Editprofile> {
                                               _currentProfileImageUrl!
                                                   .isNotEmpty)
                                           ? NetworkImage(
-                                              _currentProfileImageUrl!)
+                                              'http://88.222.215.134:3000$_currentProfileImageUrl')
                                           : const AssetImage(
                                                   'assets/images/profile.png')
                                               as ImageProvider,
@@ -414,10 +416,7 @@ class _EditprofileState extends State<Editprofile> {
                           )
                         ],
                       ),
-
                       const SizedBox(height: 30),
-
-                      // Personal Info Box
                       Container(
                         width: size.width,
                         decoration: BoxDecoration(
@@ -445,8 +444,6 @@ class _EditprofileState extends State<Editprofile> {
                                 ),
                               ),
                               const SizedBox(height: 16),
-
-                              // Full Name Field
                               const Text(
                                 'Full name:',
                                 style:
@@ -472,10 +469,7 @@ class _EditprofileState extends State<Editprofile> {
                                   return null;
                                 },
                               ),
-
                               const SizedBox(height: 16),
-
-                              // Date of Birth Field
                               const Text(
                                 'Date of birth:',
                                 style:
@@ -499,8 +493,6 @@ class _EditprofileState extends State<Editprofile> {
                                 onTap: () => _selectDate(context),
                               ),
                               const SizedBox(height: 16),
-
-                              // Password Change Toggle
                               Row(
                                 mainAxisAlignment:
                                     MainAxisAlignment.spaceBetween,
@@ -525,8 +517,6 @@ class _EditprofileState extends State<Editprofile> {
                                   ),
                                 ],
                               ),
-
-                              // Password Fields (shown conditionally)
                               if (_showPasswordFields) ...[
                                 const SizedBox(height: 8),
                                 TextFormField(
@@ -600,8 +590,6 @@ class _EditprofileState extends State<Editprofile> {
                         ),
                       ),
                       const SizedBox(height: 25),
-
-                      // Save Button
                       Container(
                         width: MediaQuery.of(context).size.width,
                         padding: const EdgeInsets.symmetric(horizontal: 0),

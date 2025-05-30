@@ -98,7 +98,6 @@ class UserService {
       photoFile,
       fileField: 'photo',
     );
-    return ApiResponse.fromJson(
-        response, (data) => User.fromJson(data['user']));
+    return ApiResponse.fromJson(response, (data) => User.fromJson(data));
   }
 }

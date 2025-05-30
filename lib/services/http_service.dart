@@ -72,18 +72,33 @@ class HttpService {
     String fileField = 'photo',
   }) async {
     try {
-      var request = http.MultipartRequest('POST', Uri.parse(url));
-      request.fields.addAll(fields);
+      print('Multipart POST to: $url'); // Debug log
 
+      var request = http.MultipartRequest('POST', Uri.parse(url));
+
+      // Add fields
+      request.fields.addAll(fields);
+      print('Fields: $fields'); // Debug log
+
+      // Add file if provided
       if (file != null) {
-        request.files
-            .add(await http.MultipartFile.fromPath(fileField, file.path));
+        print('Adding file: ${file.path}'); // Debug log
+        var multipartFile =
+            await http.MultipartFile.fromPath(fileField, file.path);
+        request.files.add(multipartFile);
+        print('File added with field name: $fileField'); // Debug log
       }
 
+      // Send request
       var streamedResponse = await request.send();
       var response = await http.Response.fromStream(streamedResponse);
+
+      print('Response status: ${response.statusCode}'); // Debug log
+      print('Response body: ${response.body}'); // Debug log
+
       return _handleResponse(response);
     } catch (e) {
+      print('Multipart request error: $e'); // Debug log
       throw Exception('Network error: $e');
     }
   }
@@ -92,6 +107,7 @@ class HttpService {
     final data = json.decode(response.body);
 
     if (response.statusCode >= 200 && response.statusCode < 300) {
+      print('Response data: $data'); // Debug log
       return data;
     } else {
       throw Exception(
