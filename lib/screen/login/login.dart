@@ -43,7 +43,7 @@ class _LoginScreenState extends State<LoginScreen> {
           final user = response.data!.user;
           await StorageService.saveUser(user);
 
-          ApiErrorHandler.showSuccess(context, 'Account created successfully!');
+          ApiErrorHandler.showSuccess(context, 'You are now logged in.');
 
           Navigator.push(
             context,
