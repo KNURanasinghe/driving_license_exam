@@ -287,8 +287,8 @@ class _HomeContentState extends State<HomeContent> {
             SizedBox(height: size.height * 0.016),
             // Dynamic Subscription card
             _buildSubscriptionCard(),
-            const SizedBox(height: 20),
-            const Text(
+            const SizedBox(height: 45),
+            /*const Text(
               "Your Progress",
               style: TextStyle(
                 fontSize: 16,
@@ -355,7 +355,7 @@ class _HomeContentState extends State<HomeContent> {
                   ),
                 ],
               ),
-            ),
+            ),*/
             const SizedBox(height: 20),
             // Study Materials Button
             _menuButton(
@@ -368,7 +368,7 @@ class _HomeContentState extends State<HomeContent> {
                 });
               },
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 25),
             // Mock Exams Button
             _menuButton(
               "Mock Exams",
@@ -441,7 +441,7 @@ class _HomeContentState extends State<HomeContent> {
         children: [
           Container(
             width: 10,
-            height: 10,
+            height: 15,
             decoration: const BoxDecoration(
               color: Colors.red,
               shape: BoxShape.circle,
