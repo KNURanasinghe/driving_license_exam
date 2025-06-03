@@ -57,6 +57,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   : 'Failed to login');
         }
       } catch (e) {
+        print('login error: $e');
         ApiErrorHandler.showError(context, ApiErrorHandler.getErrorMessage(e));
       } finally {
         setState(() {
