@@ -409,6 +409,7 @@ class _EditprofileState extends State<Editprofile> {
       }
 
       _showSuccessSnackBar('Profile image updated successfully!');
+      Navigator.pop(context, true);
     } catch (e) {
       print('Error updating profile image: $e');
       _showErrorSnackBar('Failed to update profile image: ${e.toString()}');
@@ -540,7 +541,7 @@ class _EditprofileState extends State<Editprofile> {
                               // Add button to save image only if image is selected
                               if (hasImageChanges) ...[
                                 const SizedBox(height: 8),
-                                Container(
+                                SizedBox(
                                   width:
                                       MediaQuery.of(context).size.width * 0.5,
                                   child: ElevatedButton(

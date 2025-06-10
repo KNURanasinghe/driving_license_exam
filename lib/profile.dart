@@ -2,9 +2,11 @@ import 'package:driving_license_exam/component/appbar.dart';
 import 'package:driving_license_exam/component/custompageroute.dart';
 import 'package:driving_license_exam/editprofile.dart';
 import 'package:driving_license_exam/models/subscription_models.dart';
+import 'package:driving_license_exam/premium.dart';
 import 'package:driving_license_exam/screen/login/login.dart';
 import 'package:driving_license_exam/services/api_service.dart';
 import 'package:driving_license_exam/services/subscription_service.dart';
+import 'package:driving_license_exam/services/user_service.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -81,30 +83,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> getData() async {
     try {
       print('=== Getting User Data for Profile ===');
+      final uid = await StorageService.getID();
+      final userbyid = await UserService.getUserById(uid!);
+      print('userby id ${userbyid.data}');
 
       // Get both sources of data
-      final user = await StorageService.getUser();
-      final prefs = await SharedPreferences.getInstance();
+      final user = userbyid.data;
+      //  final prefs = await SharedPreferences.getInstance();
 
       // Priority order for profile image URL:
       // 1. SharedPreferences (most recent update)
       // 2. User object from StorageService
       // 3. Fallback to null
-      String? savedProfileImageUrl = prefs.getString('profile_image_url');
+      // String? savedProfileImageUrl = prefs.getString('profile_image_url');
       String? userProfileImageUrl = user?.profilePhotoUrl;
-
+      print('image $userProfileImageUrl');
       // Use SharedPreferences value if it exists and is not empty, otherwise use user data
       String? finalProfileImageUrl;
-      if (savedProfileImageUrl != null && savedProfileImageUrl.isNotEmpty) {
-        finalProfileImageUrl = savedProfileImageUrl;
-        print(
-            'Using profile image from SharedPreferences: $savedProfileImageUrl');
-      } else if (userProfileImageUrl != null &&
-          userProfileImageUrl.isNotEmpty) {
+      if (userProfileImageUrl != null && userProfileImageUrl.isNotEmpty) {
         finalProfileImageUrl = userProfileImageUrl;
         print('Using profile image from User object: $userProfileImageUrl');
         // Sync SharedPreferences with user data
-        await prefs.setString('profile_image_url', userProfileImageUrl);
       } else {
         finalProfileImageUrl = null;
         print('No profile image found');
@@ -150,21 +149,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
     try {
       print('=== Refreshing Profile Data ===');
 
+      final uid = await StorageService.getID();
+      final userbyid = await UserService.getUserById(uid!);
       // Force refresh from both sources
-      final user = await StorageService.getUser();
-      final prefs = await SharedPreferences.getInstance();
-      final String? latestProfileImageUrl =
-          prefs.getString('profile_image_url');
+      final user = userbyid.data;
 
       print('Refreshed user: ${user?.name}');
-      print('Refreshed profile image URL: $latestProfileImageUrl');
+      // print('Refreshed profile image URL: $latestProfileImageUrl');
 
       if (user != null) {
         setState(() {
           name = user.name;
           email = user.email;
           date = user.dateOfBirth;
-          profileImageUrl = latestProfileImageUrl ?? user.profilePhotoUrl;
+          profileImageUrl = user.profilePhotoUrl;
         });
       }
     } catch (e) {
@@ -575,7 +573,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
             width: MediaQuery.of(context).size.width,
             child: ElevatedButton(
               onPressed: () {
-                Navigator.pop(context);
+                Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) => const SubscriptionScreen()));
               },
               style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xff219EBC)),
