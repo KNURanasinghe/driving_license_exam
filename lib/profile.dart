@@ -2,6 +2,7 @@ import 'package:driving_license_exam/component/appbar.dart';
 import 'package:driving_license_exam/component/custompageroute.dart';
 import 'package:driving_license_exam/editprofile.dart';
 import 'package:driving_license_exam/models/subscription_models.dart';
+import 'package:driving_license_exam/premium.dart';
 import 'package:driving_license_exam/screen/login/login.dart';
 import 'package:driving_license_exam/services/api_service.dart';
 import 'package:driving_license_exam/services/subscription_service.dart';
@@ -575,7 +576,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
             width: MediaQuery.of(context).size.width,
             child: ElevatedButton(
               onPressed: () {
-                Navigator.pop(context);
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const SubscriptionScreen()),
+                  (route) => false,
+                );
               },
               style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xff219EBC)),

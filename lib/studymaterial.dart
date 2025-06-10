@@ -4,8 +4,6 @@ import 'package:driving_license_exam/study_course.dart';
 import 'package:flutter/material.dart';
 
 import 'models/study_models.dart';
-import 'services/api_service.dart';
-import 'component/api_error_handler.dart';
 import 'services/study_service.dart';
 
 class StudyMaterialsScreen extends StatefulWidget {
@@ -103,127 +101,131 @@ class _StudyMaterialsScreenState extends State<StudyMaterialsScreen> {
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
 
-    return Scaffold(
-      body: Column(
-        children: [
-          // Header
-          appbar(
-              size: size,
-              bgcolor: const Color(0xff28A164),
-              textColor: Colors.white,
-              heading: 'STUDY  MATERIALS'),
+    return Container(
+      color: Colors.white,
+      child: Scaffold(
+        body: Column(
+          children: [
+            // Header
+            appbar(
+                size: size,
+                bgcolor: const Color(0xff28A164),
+                textColor: Colors.white,
+                heading: 'STUDY  MATERIALS'),
 
-          // Search and Featured Section
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text("Explore categories to enhance your knowledge"),
-                const SizedBox(height: 8),
-                TextField(
-                  decoration: InputDecoration(
-                    hintText: "Search study materials...",
-                    prefixIcon: const Icon(Icons.search),
-                    filled: true,
-                    fillColor: Colors.grey[200],
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
+            // Search and Featured Section
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text("Explore categories to enhance your knowledge"),
+                  const SizedBox(height: 8),
+                  TextField(
+                    decoration: InputDecoration(
+                      hintText: "Search study materials...",
+                      prefixIcon: const Icon(Icons.search),
+                      filled: true,
+                      fillColor: Colors.grey[200],
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                // Featured Banner
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Stack(
-                    alignment: Alignment.bottomLeft,
-                    children: [
-                      Image.asset('assets/images/studymaterial.png',
-                          width: double.infinity, fit: BoxFit.cover),
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              Colors.black.withOpacity(0.6),
-                              Colors.transparent
-                            ],
-                            begin: Alignment.center,
-                            end: Alignment.topCenter,
+                  const SizedBox(height: 16),
+                  // Featured Banner
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Stack(
+                      alignment: Alignment.bottomLeft,
+                      children: [
+                        Image.asset('assets/images/studymaterial.png',
+                            width: double.infinity, fit: BoxFit.cover),
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          width: double.infinity,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                Colors.black.withOpacity(0.6),
+                                Colors.transparent
+                              ],
+                              begin: Alignment.center,
+                              end: Alignment.topCenter,
+                            ),
                           ),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Container(
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(15),
-                                color: const Color(0xff219EBC),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(15),
+                                  color: const Color(0xff219EBC),
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                    vertical: 4, horizontal: 8),
+                                child: const Text(
+                                  'Featured ',
+                                  style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16),
+                                ),
                               ),
-                              padding: const EdgeInsets.symmetric(
-                                  vertical: 4, horizontal: 8),
-                              child: const Text(
-                                'Featured ',
+                              const Text(
+                                'Complete Safety Training',
                                 style: TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.bold,
-                                    fontSize: 16),
+                                    fontSize: 20),
                               ),
-                            ),
-                            const Text(
-                              'Complete Safety Training',
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 20),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text("Categories",
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 16)),
+                      if (isLoading)
+                        const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      if (errorMessage != null)
+                        IconButton(
+                          icon: const Icon(Icons.refresh),
+                          onPressed: _fetchCategories,
+                          iconSize: 20,
+                        ),
                     ],
                   ),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text("Categories",
-                        style: TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 16)),
-                    if (isLoading)
-                      const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                    if (errorMessage != null)
-                      IconButton(
-                        icon: const Icon(Icons.refresh),
-                        onPressed: _fetchCategories,
-                        iconSize: 20,
-                      ),
-                  ],
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
 
-          // Category Grid
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: _buildCategoryGrid(),
-            ),
-          )
-        ],
+            // Category Grid
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: _buildCategoryGrid(),
+              ),
+            )
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildCategoryGrid() {
+    final size = MediaQuery.of(context).size;
     if (isLoading) {
       return const Center(
         child: CircularProgressIndicator(),
@@ -293,7 +295,8 @@ class _StudyMaterialsScreenState extends State<StudyMaterialsScreen> {
                   color: _getCategoryBorderColor(category.name), width: 2),
               borderRadius: BorderRadius.circular(12),
             ),
-            padding: const EdgeInsets.all(12),
+            padding: EdgeInsets.symmetric(
+                horizontal: size.width * 0.03, vertical: size.height * 0.01),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
