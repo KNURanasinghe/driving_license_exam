@@ -573,10 +573,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             width: MediaQuery.of(context).size.width,
             child: ElevatedButton(
               onPressed: () {
-                Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (context) => const SubscriptionScreen()));
+                Navigator.pop(context);
               },
               style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xff219EBC)),

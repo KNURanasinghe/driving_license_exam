@@ -10,7 +10,6 @@ import 'package:flutter/material.dart';
 import 'models/subscription_models.dart';
 import 'providers/subscription_notifier.dart';
 import 'services/subscription_service.dart';
-import 'component/api_error_handler.dart';
 
 class SubscriptionScreen extends StatefulWidget {
   const SubscriptionScreen({super.key});
@@ -332,7 +331,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     final size = MediaQuery.of(context).size;
 
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: const Color.fromARGB(255, 255, 255, 255),
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
