@@ -103,7 +103,7 @@ class _StudyCourseScreenState extends State<StudyCourseScreen> {
 
           // Map vehicle type string to ID based on your system
           switch (vehicleType.toLowerCase()) {
-            case 'bike':
+            case 'motorcycle':
               return 1;
             case 'light_vehicle':
               return 2;
@@ -112,7 +112,7 @@ class _StudyCourseScreenState extends State<StudyCourseScreen> {
             case 'special':
               return 4;
             default:
-              return 1; // Default fallback
+              return 0; // Default fallback
           }
         }
       }
