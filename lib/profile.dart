@@ -3,14 +3,16 @@ import 'package:driving_license_exam/component/custompageroute.dart';
 import 'package:driving_license_exam/editprofile.dart';
 import 'package:driving_license_exam/models/subscription_models.dart';
 import 'package:driving_license_exam/premium.dart';
+import 'package:driving_license_exam/providers/subscription_notifier.dart';
 import 'package:driving_license_exam/screen/login/login.dart';
 import 'package:driving_license_exam/services/api_service.dart';
-import 'package:driving_license_exam/services/subscription_service.dart';
 import 'package:driving_license_exam/services/user_service.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'models/user_models.dart';
+// Import your SubscriptionNotifier here
+// import 'package:driving_license_exam/providers/subscription_notifier.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -24,15 +26,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String? email;
   String? date;
   String? profileImageUrl;
-  // Subscription related state
-  UserSubscription? currentActivePlan;
-  bool isSubscriptionLoading = true;
-  bool hasSubscriptionError = false;
   bool isLoadingProfile = true;
+
+  // Remove local subscription state - now using SubscriptionNotifier
+  late SubscriptionNotifier subscriptionNotifier;
 
   @override
   void initState() {
     super.initState();
+    subscriptionNotifier = SubscriptionNotifier();
     _initializeData();
   }
 
@@ -43,7 +45,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     await Future.wait([
       getData(),
-      _fetchUserSubscription(),
+      subscriptionNotifier.fetchAndUpdateSubscription(), // Use provider method
     ]);
 
     setState(() {
@@ -87,23 +89,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final userbyid = await UserService.getUserById(uid!);
       print('userby id ${userbyid.data}');
 
-      // Get both sources of data
       final user = userbyid.data;
-      //  final prefs = await SharedPreferences.getInstance();
-
-      // Priority order for profile image URL:
-      // 1. SharedPreferences (most recent update)
-      // 2. User object from StorageService
-      // 3. Fallback to null
-      // String? savedProfileImageUrl = prefs.getString('profile_image_url');
       String? userProfileImageUrl = user?.profilePhotoUrl;
       print('image $userProfileImageUrl');
-      // Use SharedPreferences value if it exists and is not empty, otherwise use user data
+
       String? finalProfileImageUrl;
       if (userProfileImageUrl != null && userProfileImageUrl.isNotEmpty) {
         finalProfileImageUrl = userProfileImageUrl;
         print('Using profile image from User object: $userProfileImageUrl');
-        // Sync SharedPreferences with user data
       } else {
         finalProfileImageUrl = null;
         print('No profile image found');
@@ -120,10 +113,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           profileImageUrl = finalProfileImageUrl;
         });
 
-        // If there's a mismatch, update the user object with the latest profile image
         if (finalProfileImageUrl != userProfileImageUrl) {
           print('Updating user object with latest profile image URL');
-          // Create updated user object and save it
           final updatedUser = User(
             id: user.id,
             name: user.name,
@@ -132,7 +123,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             profilePhotoUrl: finalProfileImageUrl,
             createdAt: user.createdAt,
             updatedAt: user.updatedAt,
-            // Add other user properties as needed
           );
           await StorageService.saveUser(updatedUser);
         }
@@ -144,18 +134,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  // Method to refresh profile data (called after returning from edit profile)
   Future<void> _refreshProfileData() async {
     try {
       print('=== Refreshing Profile Data ===');
 
       final uid = await StorageService.getID();
       final userbyid = await UserService.getUserById(uid!);
-      // Force refresh from both sources
       final user = userbyid.data;
 
       print('Refreshed user: ${user?.name}');
-      // print('Refreshed profile image URL: $latestProfileImageUrl');
 
       if (user != null) {
         setState(() {
@@ -170,79 +157,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  Future<void> _fetchUserSubscription() async {
-    try {
-      setState(() {
-        isSubscriptionLoading = true;
-        hasSubscriptionError = false;
-      });
-
-      final userId = await StorageService.getID();
-      print("Fetching user subscription for profile, userId: $userId");
-
-      if (userId == null) {
-        print("User ID is null, cannot fetch subscription");
-        setState(() {
-          isSubscriptionLoading = false;
-          hasSubscriptionError = true;
-        });
-        return;
-      }
-
-      final response = await SubscriptionService.getUserSubscriptions(
-        userId: userId,
-        status: 'active',
-      );
-
-      print("User subscription response for profile: ${response.data}");
-
-      if (response.success && response.data != null) {
-        setState(() {
-          currentActivePlan = _getCurrentActivePlan(response.data!);
-          isSubscriptionLoading = false;
-        });
-
-        print(
-            "Current active plan for profile: ${currentActivePlan?.plan.name}");
-      } else {
-        print("Failed to fetch user subscription: ${response.message}");
-        setState(() {
-          isSubscriptionLoading = false;
-          hasSubscriptionError = true;
-        });
-      }
-    } catch (e) {
-      print("Error fetching user subscription: $e");
-      setState(() {
-        isSubscriptionLoading = false;
-        hasSubscriptionError = true;
-      });
-    }
-  }
-
-  // Helper method to determine the current active plan
-  UserSubscription? _getCurrentActivePlan(
-      List<UserSubscription> subscriptions) {
-    if (subscriptions.isEmpty) return null;
-
-    // Filter only active and non-expired subscriptions
-    final activeSubscriptions = subscriptions
-        .where((sub) => sub.status.toLowerCase() == 'active' && !sub.isExpired)
-        .toList();
-
-    if (activeSubscriptions.isEmpty) return null;
-
-    // If multiple active subscriptions, return the one with the latest end date
-    activeSubscriptions.sort((a, b) => b.endDate.compareTo(a.endDate));
-    return activeSubscriptions.first;
-  }
-
   Future<void> _navigateToEditProfile() async {
     final prefs = await SharedPreferences.getInstance();
     final String? userId = prefs.getString('user_id');
 
     if (userId != null) {
-      // Navigate to edit profile and wait for result
       final result = await Navigator.push(
         context,
         createFadeRoute(Editprofile(
@@ -253,11 +172,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
         )),
       );
 
-      // If profile was updated successfully, refresh the data
       if (result == true) {
         print('Returned from edit profile, refreshing data...');
         await _refreshProfileData();
-        await _fetchUserSubscription(); // Also refresh subscription in case of any changes
+        await subscriptionNotifier
+            .fetchAndUpdateSubscription(); // Refresh subscription via provider
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Profile updated successfully!'),
@@ -304,14 +223,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 style: TextStyle(color: Colors.red),
               ),
               onPressed: () async {
-                // Clear storage before logout
                 await StorageService.clearStorage();
 
-                // Also clear SharedPreferences to ensure clean state
                 final prefs = await SharedPreferences.getInstance();
                 await prefs.clear();
 
-                // Navigate to login and clear all previous routes
                 Navigator.of(context).pushAndRemoveUntil(
                   createFadeRoute(const LoginScreen()),
                   (Route<dynamic> route) => false,
@@ -356,7 +272,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    // Enhanced profile image with better error handling
                     CircleAvatar(
                       radius: 50,
                       backgroundColor: Colors.grey[300],
@@ -478,7 +393,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     const SizedBox(height: 20),
 
-                    // Dynamic Subscription Box
+                    // Subscription Box using StreamBuilder
                     _buildSubscriptionCard(size),
 
                     const SizedBox(height: 10),
@@ -515,31 +430,42 @@ class _ProfileScreenState extends State<ProfileScreen> {
             const Text('Current Subscription',
                 style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 10),
-            _buildSubscriptionContent(),
+            // Use StreamBuilder to listen to subscription changes
+            StreamBuilder<UserSubscription?>(
+              stream: subscriptionNotifier.subscriptionStream,
+              initialData: subscriptionNotifier.currentSubscription,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return _buildLoadingSubscriptionContent();
+                }
+
+                return _buildSubscriptionContent(snapshot.data);
+              },
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildSubscriptionContent() {
-    if (isSubscriptionLoading) {
-      return const Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('Loading...'),
-              CircularProgressIndicator(),
-            ],
-          ),
-          SizedBox(height: 10),
-          Text('Fetching subscription details...'),
-        ],
-      );
-    }
+  Widget _buildLoadingSubscriptionContent() {
+    return const Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('Loading...'),
+            CircularProgressIndicator(),
+          ],
+        ),
+        SizedBox(height: 10),
+        Text('Fetching subscription details...'),
+      ],
+    );
+  }
 
-    if (hasSubscriptionError || currentActivePlan == null) {
+  Widget _buildSubscriptionContent(UserSubscription? currentActivePlan) {
+    if (currentActivePlan == null) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -592,16 +518,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(currentActivePlan!.plan.name),
-            Text(currentActivePlan!.plan.formattedPrice,
+            Text(currentActivePlan.plan.name),
+            Text(currentActivePlan.plan.formattedPrice,
                 style:
                     const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
           ],
         ),
         const SizedBox(height: 6),
-        Text('Expires in ${currentActivePlan!.formattedTimeRemaining}'),
+        Text('Expires in ${currentActivePlan.formattedTimeRemaining}'),
         const Divider(),
-        ...currentActivePlan!.plan.displayFeatures.map(
+        ...currentActivePlan.plan.displayFeatures.map(
           (feature) => ListTile(
             dense: true,
             leading:
@@ -609,7 +535,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             title: Text(feature),
           ),
         ),
-        if (currentActivePlan!.plan.displayFeatures.isEmpty) ...[
+        if (currentActivePlan.plan.displayFeatures.isEmpty) ...[
           const ListTile(
             dense: true,
             leading: Icon(Icons.check_circle_outline, color: Colors.green),
@@ -650,5 +576,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
       ],
     );
+  }
+
+  @override
+  void dispose() {
+    // No need to dispose the SubscriptionNotifier here since it's a singleton
+    // It will be disposed when the app closes
+    super.dispose();
   }
 }
