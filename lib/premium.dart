@@ -36,31 +36,31 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       "name": "Car",
       "icon": Icons.directions_car,
       "api_name": "car",
-      "vehicle_type_id": 1
+      "vehicle_type_id": 7
     },
     {
       "name": "Bike",
       "icon": Icons.motorcycle,
       "api_name": "motorcycle",
-      "vehicle_type_id": 2
+      "vehicle_type_id": 1
     },
     {
       "name": "Light",
       "icon": Icons.local_shipping,
       "api_name": "light_vehicle",
-      "vehicle_type_id": 3
+      "vehicle_type_id": 2
     },
     {
       "name": "Heavy",
       "icon": Icons.fire_truck,
       "api_name": "heavy_vehicle",
-      "vehicle_type_id": 4
+      "vehicle_type_id": 3
     },
     {
       "name": "Special",
       "icon": Icons.miscellaneous_services,
       "api_name": "special",
-      "vehicle_type_id": 5
+      "vehicle_type_id": 4
     },
   ];
 

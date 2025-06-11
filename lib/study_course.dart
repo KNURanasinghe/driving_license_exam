@@ -102,17 +102,17 @@ class _StudyCourseScreenState extends State<StudyCourseScreen> {
           final vehicleType = detailedResponse.data!.plan.vehicleType;
 
           // Map vehicle type string to ID based on your system
-          switch (vehicleType?.toLowerCase()) {
-            case 'license_a':
+          switch (vehicleType.toLowerCase()) {
+            case 'bike':
               return 1;
-            case 'license_b':
+            case 'light_vehicle':
               return 2;
-            case 'license_c':
+            case 'heavy_vehicle':
               return 3;
-            case 'license_d':
+            case 'special_purpose':
               return 4;
             default:
-              return 2; // Default fallback
+              return 1; // Default fallback
           }
         }
       }

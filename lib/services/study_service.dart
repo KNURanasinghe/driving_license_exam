@@ -29,6 +29,7 @@ class StudyService {
   static Future<ApiResponse<List<Category>>> getAllCategories() async {
     final response =
         await HttpService.get('${ApiConfig.studyBaseUrl}/admin/categories');
+    print('categoryy res ${response.entries}');
     return ApiResponse.fromJson(
       response,
       (data) => (data as List)
@@ -41,8 +42,10 @@ class StudyService {
     required int vehicleTypeId,
     required int categoryId,
   }) async {
+    print('vehicle id: $vehicleTypeId, category id: $categoryId');
     final response = await HttpService.get(
         '${ApiConfig.studyBaseUrl}/user/lessons/$vehicleTypeId/$categoryId');
+    print('response of study ${response.entries}');
     return ApiResponse.fromJson(
       response,
       (data) =>
@@ -58,6 +61,7 @@ class StudyService {
     final response = await HttpService.get(
       '${ApiConfig.studyBaseUrl}/user/lessons/$lessonId/questions/$vehicleTypeId/$language',
     );
+    print('response of study ${response.entries}');
     return ApiResponse.fromJson(
       response,
       (data) => (data as List)
