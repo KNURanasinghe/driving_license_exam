@@ -1,4 +1,6 @@
+import 'package:driving_license_exam/home.dart';
 import 'package:driving_license_exam/screen/login/login.dart';
+import 'package:driving_license_exam/services/api_service.dart';
 import 'package:flutter/material.dart';
 
 class Splash extends StatefulWidget {
@@ -10,15 +12,25 @@ class Splash extends StatefulWidget {
 
 class _SplashState extends State<Splash> {
   @override
-  void initState() {
+  void initState() async {
     super.initState();
+    final uid = await StorageService.getID();
     // Navigate to login screen after 3 seconds
-    Future.delayed(const Duration(seconds: 3), () {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const LoginScreen()),
-      );
-    });
+    if (uid == null || uid.isEmpty) {
+      Future.delayed(const Duration(seconds: 3), () {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const LoginScreen()),
+        );
+      });
+    } else {
+      Future.delayed(const Duration(seconds: 3), () {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const Home()),
+        );
+      });
+    }
   }
 
   @override
