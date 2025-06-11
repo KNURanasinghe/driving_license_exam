@@ -109,7 +109,7 @@ class _StudyCourseScreenState extends State<StudyCourseScreen> {
               return 2;
             case 'heavy_vehicle':
               return 3;
-            case 'special_purpose':
+            case 'special':
               return 4;
             default:
               return 1; // Default fallback
