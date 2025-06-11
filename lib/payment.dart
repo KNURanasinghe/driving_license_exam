@@ -239,17 +239,32 @@ class _PaymentScreenState extends State<PaymentScreen> {
       });
 
       // Create OnePay payment request
-      final paymentRequest = await _createOnePayPaymentRequest();
+      // final paymentRequest = await _createOnePayPaymentRequest();
 
-      if (paymentRequest['success']) {
-        // Open OnePay payment in WebView
-        await _openOnePayPayment(
-          paymentRequest['payment_url'],
-          paymentRequest['transaction_id'],
-        );
+      // if (paymentRequest['success']) {
+      //   // Open OnePay payment in WebView
+      //   await _openOnePayPayment(
+      //     paymentRequest['payment_url'],
+      //     paymentRequest['transaction_id'],
+      //   );
+      // } else {
+      //   _showErrorDialog("Payment Setup Failed",
+      //       paymentRequest['error'] ?? "Failed to setup payment");
+      // }
+      final subscriptionCreated = await _createSubscription();
+      if (subscriptionCreated) {
+        // Create vehicle license after successful subscription
+        final licenseCreated = await _createVehicleLicense();
+        await SubscriptionNotifier().fetchAndUpdateSubscription();
+
+        if (licenseCreated) {
+          _showSuccessDialog();
+        } else {
+          _showPartialSuccessDialog();
+        }
       } else {
-        _showErrorDialog("Payment Setup Failed",
-            paymentRequest['error'] ?? "Failed to setup payment");
+        _showErrorDialog("Subscription Failed",
+            "Payment was successful but subscription activation failed. Please contact support.");
       }
     } catch (e) {
       print("Error processing payment: $e");
@@ -568,8 +583,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
               child: ElevatedButton(
                 onPressed: (isProcessingPayment || isCreatingLicense)
                     ? null
-                    // : _processPayment,
-                    : _createSubscription,
+                    : _processPayment,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xff219EBC),
                   shape: RoundedRectangleBorder(

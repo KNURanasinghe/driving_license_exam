@@ -41,7 +41,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     {
       "name": "Bike",
       "icon": Icons.motorcycle,
-      "api_name": "bike",
+      "api_name": "motorcycle",
       "vehicle_type_id": 2
     },
     {
