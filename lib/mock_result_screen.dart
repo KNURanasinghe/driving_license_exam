@@ -198,56 +198,56 @@ class _MockResultScreenState extends State<MockResultScreen> {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Column(
-        children: [
-          appbar(
-            size: size,
-            bgcolor: bgcolor,
-            textColor: Colors.white,
-            heading: heading,
-          ),
-          const SizedBox(height: 20),
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
+            appbar(
+              size: size,
+              bgcolor: bgcolor,
+              textColor: Colors.white,
+              heading: heading,
+            ),
+            const SizedBox(height: 20),
 
-          // Answer Summary
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Column(
-              children: [
-                _summaryTile("Total Questions", totalQuestions.toString()),
-                const SizedBox(height: 8),
-                _summaryTile("Correct Answers", correctAnswers.toString(),
-                    color: Colors.green),
-                const SizedBox(height: 8),
-                _summaryTile("Wrong Answers", wrongAnswers.toString(),
-                    color: Colors.red),
-                const SizedBox(height: 8),
-                _summaryTile("Score", "${percentage.toStringAsFixed(1)}%",
-                    color: isPassed ? Colors.green : Colors.red),
-                if (examResult != null) ...[
+            // Answer Summary
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Column(
+                children: [
+                  _summaryTile("Total Questions", totalQuestions.toString()),
                   const SizedBox(height: 8),
-                  _summaryTile("Grade", grade,
-                      color: isPassed ? Colors.green : Colors.orange),
-                  if (examResult!.examDurationMinutes != null) ...[
+                  _summaryTile("Correct Answers", correctAnswers.toString(),
+                      color: Colors.green),
+                  const SizedBox(height: 8),
+                  _summaryTile("Wrong Answers", wrongAnswers.toString(),
+                      color: Colors.red),
+                  const SizedBox(height: 8),
+                  _summaryTile("Score", "${percentage.toStringAsFixed(1)}%",
+                      color: isPassed ? Colors.green : Colors.red),
+                  if (examResult != null) ...[
                     const SizedBox(height: 8),
-                    _summaryTile(
-                        "Duration", "${examResult!.examDurationMinutes} min",
-                        color: Colors.blue),
+                    _summaryTile("Grade", grade,
+                        color: isPassed ? Colors.green : Colors.orange),
+                    if (examResult!.examDurationMinutes != null) ...[
+                      const SizedBox(height: 8),
+                      _summaryTile(
+                          "Duration", "${examResult!.examDurationMinutes} min",
+                          color: Colors.blue),
+                    ],
                   ],
                 ],
-              ],
+              ),
             ),
-          ),
 
-          // Category Performance (if available)
-          if (examResult != null &&
-              examResult!.categoryPerformance.isNotEmpty) ...[
-            const SizedBox(height: 20),
-            _buildCategoryPerformance(),
-          ],
+            // Category Performance (if available)
+            if (examResult != null &&
+                examResult!.categoryPerformance.isNotEmpty) ...[
+              const SizedBox(height: 20),
+              _buildCategoryPerformance(),
+            ],
 
-          // Result Section
-          Expanded(
-            child: SingleChildScrollView(
+            // Result Section
+            SingleChildScrollView(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -308,44 +308,44 @@ class _MockResultScreenState extends State<MockResultScreen> {
                 ],
               ),
             ),
-          ),
 
-          // Buttons
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                review_btn.CustomButton(
-                  onPressed: () {
-                    if (examResult != null) {
-                      _showDetailedResults(context);
-                    } else if (widget.userAnswers != null &&
-                        widget.questions != null) {
-                      Navigator.push(
-                        context,
-                        createFadeRoute(ReviewScreen(
-                          source: widget.source ?? 'MockExam',
-                          userAnswers: widget.userAnswers!,
-                          questions: widget.questions!,
-                        )),
-                      );
-                    }
-                  },
-                  text: examResult != null ? 'Details' : 'Review',
-                ),
-                review_btn.CustomButton(
-                  onPressed: () {
-                    Navigator.push(context, createFadeRoute(const Home()));
-                  },
-                  text: 'Home',
-                  backgroundColor: const Color(0xff4378DB),
-                  textColor: Colors.white,
-                ),
-              ],
+            // Buttons
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  review_btn.CustomButton(
+                    onPressed: () {
+                      if (examResult != null) {
+                        _showDetailedResults(context);
+                      } else if (widget.userAnswers != null &&
+                          widget.questions != null) {
+                        Navigator.push(
+                          context,
+                          createFadeRoute(ReviewScreen(
+                            source: widget.source ?? 'MockExam',
+                            userAnswers: widget.userAnswers!,
+                            questions: widget.questions!,
+                          )),
+                        );
+                      }
+                    },
+                    text: examResult != null ? 'Details' : 'Review',
+                  ),
+                  review_btn.CustomButton(
+                    onPressed: () {
+                      Navigator.push(context, createFadeRoute(const Home()));
+                    },
+                    text: 'Home',
+                    backgroundColor: const Color(0xff4378DB),
+                    textColor: Colors.white,
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
