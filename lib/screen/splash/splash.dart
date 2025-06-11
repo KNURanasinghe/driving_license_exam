@@ -12,8 +12,12 @@ class Splash extends StatefulWidget {
 
 class _SplashState extends State<Splash> {
   @override
-  void initState() async {
+  void initState() {
     super.initState();
+    navigateToNextScreen();
+  }
+
+  void navigateToNextScreen() async {
     final uid = await StorageService.getID();
     // Navigate to login screen after 3 seconds
     if (uid == null || uid.isEmpty) {

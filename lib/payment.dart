@@ -568,7 +568,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
               child: ElevatedButton(
                 onPressed: (isProcessingPayment || isCreatingLicense)
                     ? null
-                    : _processPayment,
+                    // : _processPayment,
+                    : _createSubscription,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xff219EBC),
                   shape: RoundedRectangleBorder(
