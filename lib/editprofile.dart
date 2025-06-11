@@ -1,4 +1,5 @@
 import 'dart:io';
+
 import 'package:driving_license_exam/component/appbar.dart';
 import 'package:driving_license_exam/component/backbutton.dart';
 import 'package:driving_license_exam/services/api_service.dart';
@@ -456,6 +457,7 @@ class _EditprofileState extends State<Editprofile> {
     bool hasImageChanges = _hasImageChanged();
 
     return Scaffold(
+      bottomNavigationBar: backbutton(size: size),
       backgroundColor: const Color.fromARGB(255, 255, 255, 255),
       body: SingleChildScrollView(
         child: Form(
@@ -816,7 +818,6 @@ class _EditprofileState extends State<Editprofile> {
                   ),
                 ),
               ),
-              backbutton(size: size),
             ],
           ),
         ),

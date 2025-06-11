@@ -32,12 +32,12 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
 
   // Updated vehicle types with vehicle_type_id mapping
   final List<Map<String, dynamic>> vehicleTypes = [
-    {
-      "name": "Car",
-      "icon": Icons.directions_car,
-      "api_name": "car",
-      "vehicle_type_id": 7
-    },
+    // {
+    //   "name": "Car",
+    //   "icon": Icons.directions_car,
+    //   "api_name": "car",
+    //   "vehicle_type_id": 7
+    // },
     {
       "name": "Bike",
       "icon": Icons.motorcycle,
