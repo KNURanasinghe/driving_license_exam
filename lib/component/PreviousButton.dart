@@ -15,6 +15,7 @@ class PreviousButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
+    // ignore: unused_local_variable
     final double baseFontSize = size.width * 0.04;
     final double baseIconSize = size.width * 0.045;
     final double basePadding = size.width * 0.03;
