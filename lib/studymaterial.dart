@@ -104,7 +104,7 @@ class _StudyMaterialsScreenState extends State<StudyMaterialsScreen> {
     return Container(
       color: Colors.white,
       child: Scaffold(
-        
+        backgroundColor: Colors.white,
         body: SingleChildScrollView(
           // Wrap the entire body in SingleChildScrollView
           child: Column(
