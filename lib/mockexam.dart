@@ -826,15 +826,19 @@ class _MockExamDoState extends State<MockExamDo> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    PreviousButton(
-                      onPressed: currentQuestionIndex > 0
-                          ? _goToPreviousQuestion
-                          : null,
+                    Flexible(
+                      child: PreviousButton(
+                        onPressed: currentQuestionIndex > 0
+                            ? _goToPreviousQuestion
+                            : null,
+                      ),
                     ),
-                    NextButton(
-                      onPressed:
-                          selectedAnswer != -1 ? _goToNextQuestion : null,
-                      isLastQuestion: isLastQuestion,
+                    Flexible(
+                      child: NextButton(
+                        onPressed:
+                            selectedAnswer != -1 ? _goToNextQuestion : null,
+                        isLastQuestion: isLastQuestion,
+                      ),
                     ),
                   ],
                 ),

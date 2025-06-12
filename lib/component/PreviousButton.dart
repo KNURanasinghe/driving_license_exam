@@ -9,21 +9,19 @@ class PreviousButton extends StatelessWidget {
     super.key,
     this.onPressed,
     this.buttonText = "Previous",
-    this.widthPercentage = 0.4,
+    this.widthPercentage = 0.35, // Reduced from 0.4 to prevent overflow
   });
 
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
-    // ignore: unused_local_variable
     final double baseFontSize = size.width * 0.04;
     final double baseIconSize = size.width * 0.045;
     final double basePadding = size.width * 0.03;
 
-    // Calculate button width with constraints for responsiveness
     final double buttonWidth = (size.width * widthPercentage).clamp(
-      120.0, // Minimum width for small screens
-      300.0, // Maximum width for large screens
+      140.0,
+      300.0,
     );
 
     return Padding(
@@ -34,10 +32,10 @@ class PreviousButton extends StatelessWidget {
       child: Align(
         alignment: Alignment.centerLeft,
         child: Container(
-          width: buttonWidth, // Use constrained width
+          width: buttonWidth,
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(25),
+            borderRadius: BorderRadius.circular(size.width * 0.0625),
             boxShadow: const [
               BoxShadow(
                 color: Colors.black12,
@@ -53,8 +51,9 @@ class PreviousButton extends StatelessWidget {
               buttonText,
               textAlign: TextAlign.left,
               style: TextStyle(
-                fontSize: 16,
+                fontSize: baseFontSize,
                 fontWeight: FontWeight.w500,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
             style: TextButton.styleFrom(
@@ -63,8 +62,7 @@ class PreviousButton extends StatelessWidget {
                 vertical: basePadding,
                 horizontal: basePadding * 1.33,
               ),
-              alignment:
-                  Alignment.centerLeft, // Align text and icon to the left
+              alignment: Alignment.centerLeft,
             ),
           ),
         ),
