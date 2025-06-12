@@ -159,7 +159,7 @@ class _MockResultScreenState extends State<MockResultScreen> {
                       const SizedBox(height: 16),
                       TextButton(
                         onPressed: () {
-                          Navigator.push(
+                          Navigator.pushReplacement(
                               context, createFadeRoute(const Home()));
                         },
                         child: const Text('Go to Home'),
@@ -335,7 +335,8 @@ class _MockResultScreenState extends State<MockResultScreen> {
                   ),
                   review_btn.CustomButton(
                     onPressed: () {
-                      Navigator.push(context, createFadeRoute(const Home()));
+                      Navigator.pushReplacement(
+                          context, createFadeRoute(const Home()));
                     },
                     text: 'Home',
                     backgroundColor: const Color(0xff4378DB),
