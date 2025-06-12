@@ -19,6 +19,12 @@ class PreviousButton extends StatelessWidget {
     final double baseIconSize = size.width * 0.045;
     final double basePadding = size.width * 0.03;
 
+    // Calculate button width with constraints for responsiveness
+    final double buttonWidth = (size.width * widthPercentage).clamp(
+      120.0, // Minimum width for small screens
+      300.0, // Maximum width for large screens
+    );
+
     return Padding(
       padding: EdgeInsets.symmetric(
         vertical: size.height * 0.025,
@@ -27,7 +33,7 @@ class PreviousButton extends StatelessWidget {
       child: Align(
         alignment: Alignment.centerLeft,
         child: Container(
-          width: size.width * widthPercentage,
+          width: buttonWidth, // Use constrained width
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(25),
@@ -45,7 +51,7 @@ class PreviousButton extends StatelessWidget {
             label: Text(
               buttonText,
               textAlign: TextAlign.left,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
               ),
