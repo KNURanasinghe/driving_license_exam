@@ -75,6 +75,8 @@ class _HomeState extends State<Home> with SingleTickerProviderStateMixin {
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
     return Scaffold(
+      backgroundColor:
+          Colors.white, // Changed Scaffold background color to white
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: _onTabTapped,
@@ -470,6 +472,13 @@ class _HomeContentState extends State<HomeContent> {
           height: 10,
           decoration: BoxDecoration(
             color: _getSubscriptionStatusColor(),
+            boxShadow: const [
+              BoxShadow(
+                color: Colors.black12,
+                blurRadius: 2,
+                offset: Offset(0, 2),
+              ),
+            ],
             shape: BoxShape.circle,
           ),
         ),
