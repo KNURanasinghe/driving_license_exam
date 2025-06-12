@@ -121,18 +121,18 @@ class _StudyMaterialsScreenState extends State<StudyMaterialsScreen> {
                 children: [
                   const Text("Explore categories to enhance your knowledge"),
                   const SizedBox(height: 8),
-                  TextField(
-                    decoration: InputDecoration(
-                      hintText: "Search study materials...",
-                      prefixIcon: const Icon(Icons.search),
-                      filled: true,
-                      fillColor: Colors.grey[200],
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
-                    ),
-                  ),
+                  // TextField(
+                  //   decoration: InputDecoration(
+                  //     hintText: "Search study materials...",
+                  //     prefixIcon: const Icon(Icons.search),
+                  //     filled: true,
+                  //     fillColor: Colors.grey[200],
+                  //     border: OutlineInputBorder(
+                  //       borderRadius: BorderRadius.circular(12),
+                  //       borderSide: BorderSide.none,
+                  //     ),
+                  //   ),
+                  // ),
                   const SizedBox(height: 16),
                   // Featured Banner
                   ClipRRect(
