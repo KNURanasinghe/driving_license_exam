@@ -15,8 +15,8 @@ class NextButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
-    final double baseFontSize = size.width * 0.04;
-    final double baseIconSize = size.width * 0.045;
+    final double baseFontSize = size.width * 0.035;
+    final double baseIconSize = size.width * 0.035;
     final double basePadding = size.width * 0.03;
 
     final double buttonWidth = (size.width * widthPercentage).clamp(
@@ -26,8 +26,8 @@ class NextButton extends StatelessWidget {
 
     return Padding(
       padding: EdgeInsets.symmetric(
-        vertical: size.height * 0.025,
-        horizontal: size.width * 0.05,
+        vertical: size.height * 0.02,
+        horizontal: size.width * 0.01,
       ),
       child: Align(
         alignment: Alignment.centerRight,
