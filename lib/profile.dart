@@ -560,7 +560,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         const SizedBox(height: 10),
         SizedBox(
           width: MediaQuery.of(context).size.width,
-          child: ElevatedButton(
+          /*child: ElevatedButton(
             onPressed: () {
               Navigator.push(
                   context,
@@ -572,7 +572,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: const Text('Manage Subscription',
                 style: TextStyle(
                     fontWeight: FontWeight.bold, color: Colors.white)),
-          ),
+          ),*/
         ),
       ],
     );
