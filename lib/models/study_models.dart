@@ -106,42 +106,43 @@ class Question {
   final int id;
   final String questionText;
   final int correctOption;
-  final String explanation;
+  final String? explanation;
   final int vehicleTypeId;
   final String vehicleTypeName;
   final String language;
   final List<QuestionOption> options;
-  final String? imageUrl;
+  final String? imageUrl; // Make this nullable
   final String? questionAudio;
-  final int? questionAudioDuration;
+  final String? questionAudioDuration;
 
   Question({
     required this.id,
     required this.questionText,
     required this.correctOption,
-    required this.explanation,
+    this.explanation,
     required this.vehicleTypeId,
     required this.vehicleTypeName,
     required this.language,
     required this.options,
-    this.imageUrl,
+    this.imageUrl, // Make this optional
     this.questionAudio,
     this.questionAudioDuration,
   });
 
   factory Question.fromJson(Map<String, dynamic> json) {
     return Question(
-      id: json['id'],
-      questionText: json['question_text'],
-      correctOption: json['correct_option'],
+      id: json['id'] ?? 0,
+      questionText: json['question_text'] ?? '',
+      correctOption: json['correct_option'] ?? 1,
       explanation: json['explanation'],
-      vehicleTypeId: json['vehicle_type_id'],
-      vehicleTypeName: json['vehicle_type_name'],
-      language: json['language'],
-      options: (json['options'] as List)
-          .map((option) => QuestionOption.fromJson(option))
-          .toList(),
-      imageUrl: json['image_url'],
+      vehicleTypeId: json['vehicle_type_id'] ?? 0,
+      vehicleTypeName: json['vehicle_type_name'] ?? '',
+      language: json['language'] ?? 'en',
+      options: (json['options'] as List<dynamic>?)
+              ?.map((option) => QuestionOption.fromJson(option))
+              .toList() ??
+          [],
+      imageUrl: json['image_url'], // This field might be null/missing
       questionAudio: json['question_audio'],
       questionAudioDuration: json['question_audio_duration'],
     );

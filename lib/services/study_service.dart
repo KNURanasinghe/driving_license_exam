@@ -61,7 +61,7 @@ class StudyService {
     final response = await HttpService.get(
       '${ApiConfig.studyBaseUrl}/user/lessons/$lessonId/questions/$vehicleTypeId/$language',
     );
-    print('response of study ${response.entries}');
+    print('response of study ${response['data']}');
     return ApiResponse.fromJson(
       response,
       (data) => (data as List)

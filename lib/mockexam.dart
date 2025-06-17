@@ -158,13 +158,21 @@ class _MockExamDoState extends State<MockExamDo> {
           vehicleTypeId: widget.vehicleTypeId!,
           language: widget.selectedLanguageCode,
         );
-
+        print('study response: $response');
         if (response.success && response.data != null) {
           setState(() {
             studyQuestions = response.data!;
             userAnswers = List.filled(studyQuestions.length, -1);
             isLoading = false;
           });
+          print('=== STUDY QUESTIONS DEBUG ===  ${widget.vehicleTypeId!}');
+          for (int i = 0; i < studyQuestions.length; i++) {
+            print('Question $i:');
+            print('  Text: ${studyQuestions[i].questionText}');
+            print('  Image URL: ${studyQuestions[i].imageUrl}');
+            print('  Has Image: ${studyQuestions[i].imageUrl != null}');
+          }
+          print('=== END DEBUG ===');
 
           if (studyQuestions.isNotEmpty) {
             _loadCurrentQuestionAudio();
