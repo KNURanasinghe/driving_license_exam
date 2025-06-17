@@ -45,7 +45,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
           ApiErrorHandler.showSuccess(context, 'You are now logged in.');
 
-          Navigator.push(
+          Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (_) => const Home()),
           );
