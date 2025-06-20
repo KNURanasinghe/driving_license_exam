@@ -1,6 +1,7 @@
 import 'package:driving_license_exam/component/appbar.dart';
 import 'package:driving_license_exam/component/custompageroute.dart';
 import 'package:driving_license_exam/study_course.dart';
+import 'package:driving_license_exam/services/socket_service.dart';
 import 'package:flutter/material.dart';
 
 import 'models/study_models.dart';
@@ -53,7 +54,111 @@ class _StudyMaterialsScreenState extends State<StudyMaterialsScreen> {
   @override
   void initState() {
     super.initState();
-    _fetchCategories();
+    _initializeSocketAndFetchData();
+  }
+
+  @override
+  void dispose() {
+    // Clear socket callbacks when this screen is disposed
+    SocketService.clearCallbacks();
+    super.dispose();
+  }
+
+  Future<void> _initializeSocketAndFetchData() async {
+    // Initialize socket connection
+    _setupSocketConnection();
+
+    // Fetch initial categories
+    await _fetchCategories();
+  }
+
+  void _setupSocketConnection() {
+    // Initialize socket if not already done
+    SocketService.initialize();
+    SocketService.connect();
+
+    // Set up category event callbacks
+    SocketService.setCategoryEventCallbacks(
+      onCreated: _onCategoryCreated,
+      onUpdated: _onCategoryUpdated,
+      onDeleted: _onCategoryDeleted,
+    );
+  }
+
+  // Socket event handlers
+  void _onCategoryCreated(Category newCategory) {
+    if (mounted) {
+      setState(() {
+        categories.add(newCategory);
+      });
+
+      // Show a snackbar to notify user
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('New category "${newCategory.displayName}" added!'),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 3),
+          action: SnackBarAction(
+            label: 'View',
+            textColor: Colors.white,
+            onPressed: () {
+              // Optionally scroll to the new category or highlight it
+              _highlightNewCategory(newCategory.id);
+            },
+          ),
+        ),
+      );
+    }
+  }
+
+  void _onCategoryUpdated(Category updatedCategory) {
+    if (mounted) {
+      setState(() {
+        final index =
+            categories.indexWhere((cat) => cat.id == updatedCategory.id);
+        if (index != -1) {
+          categories[index] = updatedCategory;
+        }
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Category "${updatedCategory.displayName}" updated!'),
+          backgroundColor: Colors.blue,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  void _onCategoryDeleted(int categoryId) {
+    if (mounted) {
+      final deletedCategory = categories.firstWhere(
+        (cat) => cat.id == categoryId,
+        orElse: () =>
+            Category(id: -1, name: '', displayName: 'Unknown', lessonCount: 0),
+      );
+
+      setState(() {
+        categories.removeWhere((cat) => cat.id == categoryId);
+      });
+
+      if (deletedCategory.id != -1) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Category "${deletedCategory.displayName}" removed!'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    }
+  }
+
+  void _highlightNewCategory(int categoryId) {
+    // You can implement category highlighting logic here
+    // For example, scroll to the category or show a brief animation
+    print('Highlighting category with ID: $categoryId');
   }
 
   Future<void> _fetchCategories() async {
@@ -106,7 +211,6 @@ class _StudyMaterialsScreenState extends State<StudyMaterialsScreen> {
       child: Scaffold(
         backgroundColor: Colors.white,
         body: SingleChildScrollView(
-          // Wrap the entire body in SingleChildScrollView
           child: Column(
             children: [
               // Header
@@ -122,25 +226,66 @@ class _StudyMaterialsScreenState extends State<StudyMaterialsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text("Explore categories to enhance your knowledge",
-                        style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 18,
-                            fontStyle: FontStyle.italic,
-                            color: Colors.grey)),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: const Text(
+                            "Explore categories to enhance your knowledge",
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                                fontStyle: FontStyle.italic,
+                                color: Colors.grey),
+                          ),
+                        ),
+                        // Socket connection indicator
+                        Container(
+                          margin: const EdgeInsets.only(left: 8),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: SocketService.isConnected
+                                ? Colors.green.withOpacity(0.1)
+                                : Colors.red.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: SocketService.isConnected
+                                  ? Colors.green
+                                  : Colors.red,
+                              width: 1,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                SocketService.isConnected
+                                    ? Icons.wifi
+                                    : Icons.wifi_off,
+                                size: 14,
+                                color: SocketService.isConnected
+                                    ? Colors.green
+                                    : Colors.red,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                SocketService.isConnected ? 'Live' : 'Offline',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                  color: SocketService.isConnected
+                                      ? Colors.green
+                                      : Colors.red,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 8),
-                    // TextField(
-                    //   decoration: InputDecoration(
-                    //     hintText: "Search study materials...",
-                    //     prefixIcon: const Icon(Icons.search),
-                    //     filled: true,
-                    //     fillColor: Colors.grey[200],
-                    //     border: OutlineInputBorder(
-                    //       borderRadius: BorderRadius.circular(12),
-                    //       borderSide: BorderSide.none,
-                    //     ),
-                    //   ),
-                    // ),
                     const SizedBox(height: 16),
                     // Featured Banner
                     ClipRRect(
@@ -201,18 +346,23 @@ class _StudyMaterialsScreenState extends State<StudyMaterialsScreen> {
                         const Text("Categories",
                             style: TextStyle(
                                 fontWeight: FontWeight.bold, fontSize: 16)),
-                        if (isLoading)
-                          const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
-                        if (errorMessage != null)
-                          IconButton(
-                            icon: const Icon(Icons.refresh),
-                            onPressed: _fetchCategories,
-                            iconSize: 20,
-                          ),
+                        Row(
+                          children: [
+                            if (isLoading)
+                              const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                            if (errorMessage != null)
+                              IconButton(
+                                icon: const Icon(Icons.refresh),
+                                onPressed: _fetchCategories,
+                                iconSize: 20,
+                              ),
+                          ],
+                        ),
                       ],
                     ),
                   ],
@@ -265,22 +415,39 @@ class _StudyMaterialsScreenState extends State<StudyMaterialsScreen> {
     }
 
     if (categories.isEmpty) {
-      return const Center(
-        child: Text(
-          'No categories available',
-          style: TextStyle(
-            fontSize: 16,
-            color: Colors.grey,
-          ),
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.category_outlined, size: 64, color: Colors.grey[400]),
+            const SizedBox(height: 16),
+            const Text(
+              'No categories available',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              SocketService.isConnected
+                  ? 'New categories will appear here automatically'
+                  : 'Check your connection and try again',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[500],
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
         ),
       );
     }
 
     return GridView.builder(
       itemCount: categories.length,
-      shrinkWrap: true, // Added to prevent GridView from taking infinite height
-      physics:
-          const NeverScrollableScrollPhysics(), // Disable GridView's own scrolling
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
         mainAxisSpacing: 12,
@@ -296,10 +463,11 @@ class _StudyMaterialsScreenState extends State<StudyMaterialsScreen> {
                 createFadeRoute(StudyCourseScreen(
                   size: MediaQuery.of(context).size,
                   categoryTitle: category.displayName,
-                  categoryId: category.id, // Pass category ID if needed
+                  categoryId: category.id,
                 )));
           },
-          child: Container(
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
             decoration: BoxDecoration(
               border: Border.all(
                   color: _getCategoryBorderColor(category.name), width: 2),
@@ -317,8 +485,6 @@ class _StudyMaterialsScreenState extends State<StudyMaterialsScreen> {
                   style: const TextStyle(
                       fontWeight: FontWeight.bold, fontSize: 17),
                 ),
-                // Note: API doesn't provide lesson count, so we'll show a placeholder
-                // You can fetch lesson count separately if needed
                 const Text("View lessons",
                     style: TextStyle(fontSize: 14, color: Colors.grey)),
               ],
