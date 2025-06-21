@@ -44,24 +44,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
       "QCW911908A89E00B3FDA8"; // Replace with your Hash Salt
   static const String ONEPAY_API_BASE = "https://api.onepay.lk/v3";
 
-  // Method to generate transaction reference
-  String _generateTransactionReference() {
-    final timestamp = DateTime.now().millisecondsSinceEpoch;
-    final random = Random().nextInt(999999).toString().padLeft(6, '0');
-    return "TXN$random";
-  }
+// Placeholder method to fetch user details (implement based on your backend)
 
-  // Method to generate hash for OnePay
-  String _generateOnePayHash(
-      String appId, String currency, double amount, String hashSalt) {
-    final input = "$appId$currency$amount$hashSalt";
-    final bytes = utf8.encode(input);
-    final digest = sha256.convert(bytes);
-    return digest.toString();
-  }
-
-  // Method to create OnePay payment request
-  Future<Map<String, dynamic>> _createOnePayPaymentRequest() async {
+  Future<Map<String, dynamic>> _createPaymentRequest() async {
     try {
       // Validate user ID
       final userId = await StorageService.getID();
@@ -72,117 +57,94 @@ class _PaymentScreenState extends State<PaymentScreen> {
         };
       }
 
-      // Fetch user details from a secure service (replace with your implementation)
+      // Fetch user details for the payment
       final userDetails = await _fetchUserDetails(userId);
-      if (!userDetails['success']) {
-        return {
-          'success': false,
-          'error': userDetails['error'] ?? 'Failed to fetch user details',
-        };
-      }
 
-      // Generate transaction reference and validate amount
-      final reference = _generateTransactionReference();
-      final amount = widget.selectedPlan.price;
-      if (amount <= 0) {
-        return {
-          'success': false,
-          'error': 'Invalid payment amount',
-        };
-      }
-      const currency =
-          "LKR"; // Ensure this matches OnePay's supported currencies
-
-      // Generate hash (ensure _generateOnePayHash matches OnePay's requirements)
-      final hash = _generateOnePayHash(
-        ONEPAY_APP_ID,
-        currency,
-        amount,
-        ONEPAY_HASH_SALT,
-      );
-
-      // Build request body
-      final requestBody = {
-        "currency": currency,
-        "app_id": ONEPAY_APP_ID,
-        "hash": hash,
-        "amount": amount.toStringAsFixed(2), // Ensure correct decimal places
-        "reference": reference,
-        "customer_first_name": userDetails['first_name'] ?? 'Unknown',
-        "customer_last_name": userDetails['last_name'] ?? 'Unknown',
-        "customer_phone_number": userDetails['phone_number'] ?? '',
-        "customer_email": userDetails['email'] ?? '',
-        "transaction_redirect_url":
-            "https://your-app.com/payment-success", // Replace with dynamic or configured URL
-        "additionalData":
-            "subscription_${widget.selectedPlan.id}_vehicle_${widget.vehicleTypeId}",
+      // Prepare payment data to send to backend
+      final paymentData = {
+        'user_id': userId,
+        'plan_id': widget.selectedPlan.id,
+        'vehicle_type_id': widget.vehicleTypeId,
+        'vehicle_type_name': widget.vehicleTypeName,
+        'amount': widget.selectedPlan.price,
+        'currency': 'LKR',
+        'payment_method': 'onepay',
+        // Include user details for OnePay
+        'customer_details': {
+          'first_name': userDetails['success']
+              ? userDetails['first_name'] ?? 'Customer'
+              : 'Customer',
+          'last_name': userDetails['success']
+              ? userDetails['last_name'] ?? 'User'
+              : 'User',
+          'email': userDetails['success']
+              ? userDetails['email'] ?? 'customer@example.com'
+              : 'customer@example.com',
+          'phone': userDetails['success']
+              ? userDetails['phone_number'] ?? '+94771234567'
+              : '+94771234567',
+        }
       };
 
-      // Log request (avoid logging sensitive data in production)
-      debugPrint(
-          "Creating OnePay payment request: ${requestBody['reference']}");
+      print("Sending payment request to backend: $paymentData");
 
-      // Send POST request
+      // Send payment request to your backend
       final response = await HttpService.post(
-        '$ONEPAY_API_BASE/checkout/link/',
-        headers: {
-          'Authorization': 'Bearer $ONEPAY_APP_TOKEN', // Ensure correct format
-          'Content-Type': 'application/json',
-        },
-        body: requestBody, // Pass as Map<String, dynamic>
+        'http://88.222.215.134:3002/api/payment/debug-onepay-credentials',
+        body: paymentData,
       );
 
-      // Log response (avoid logging sensitive data)
-      debugPrint("OnePay response status: ${response['status']}");
+      print("Backend payment response: $response");
 
-      // Validate response
-      if (response['status'] == 200 && response['data'] != null) {
-        final data = response['data'];
-        if (data['gateway']?['redirect_url'] != null &&
-            data['ipg_transaction_id'] != null) {
-          return {
-            'success': true,
-            'payment_url': data['gateway']['redirect_url'],
-            'transaction_id': data['ipg_transaction_id'],
-            'reference': reference,
-          };
-        } else {
-          return {
-            'success': false,
-            'error': 'Invalid response structure from OnePay',
-          };
-        }
+      if (response['success'] == true) {
+        return {
+          'success': true,
+          'payment_url': response['data']['payment_url'],
+          'transaction_id': response['data']['transaction_id'],
+          'reference': response['data']['reference'],
+        };
       } else {
         return {
           'success': false,
-          'error': response['message'] ??
-              'Failed to create payment request (Status: ${response['status']})',
+          'error': response['error'] ?? 'Failed to create payment request',
         };
       }
-    } catch (e, stackTrace) {
-      // Log error with stack trace for debugging
-      debugPrint("Error creating OnePay payment request: $e\n$stackTrace");
+    } catch (e) {
+      print("Error creating payment request: $e");
       return {
         'success': false,
-        'error': 'An error occurred while setting up payment: ${e.toString()}',
+        'error': 'Network error: ${e.toString()}',
       };
     }
   }
 
-// Placeholder method to fetch user details (implement based on your backend)
   Future<Map<String, dynamic>> _fetchUserDetails(String userId) async {
     try {
+      print("Fetching user details for userId: $userId");
+
       final response = await HttpService.get(
-        'http://88.222.215.134:3000/api/users/$userId', // Replace with your user endpoint
+        'http://88.222.215.134:3000/api/users/$userId',
       );
-      if (response['success'] == true) {
-        final data = response['data'];
+
+      print("User details response: $response");
+
+      if (response['success'] == true && response['data'] != null) {
+        final data = response['data'] as Map<String, dynamic>;
+
+        // Extract and validate user data
+        final firstName =
+            data['name']?.toString().split(' ').first ?? 'Customer';
+        final lastName =
+            data['name']?.toString().split(' ').skip(1).join(' ') ?? '';
+        final email = data['email']?.toString() ?? '';
+        const phone = '+947171234123'; // Phone might not be in your user data
+
         return {
           'success': true,
-          'first_name': data['first_name'],
-          'last_name': data['last_name'],
-          'phone_number': data['phone_number'],
-          'email': data['email'],
+          'first_name': firstName,
+          'last_name': lastName.isNotEmpty ? lastName : 'User',
+          'phone_number': phone,
+          'email': email,
         };
       } else {
         return {
@@ -193,50 +155,50 @@ class _PaymentScreenState extends State<PaymentScreen> {
     } catch (e) {
       return {
         'success': false,
-        'error': e.toString(),
+        'error': 'Network error: ${e.toString()}',
       };
     }
   }
 
-  // Method to check payment status
-  Future<Map<String, dynamic>> _checkPaymentStatus(String transactionId) async {
-    try {
-      final requestBody = {
-        "app_id": ONEPAY_APP_ID,
-        "onepay_transaction_id": transactionId,
-      };
+  // // Method to check payment status
+  // Future<Map<String, dynamic>> _checkPaymentStatus(String transactionId) async {
+  //   try {
+  //     final requestBody = {
+  //       "app_id": ONEPAY_APP_ID,
+  //       "onepay_transaction_id": transactionId,
+  //     };
 
-      final response = await HttpService.post(
-        '$ONEPAY_API_BASE/transaction/status/',
-        headers: {
-          'Authorization': ONEPAY_APP_TOKEN,
-          'Content-Type': 'application/json',
-        },
-        body: requestBody,
-      );
+  //     final response = await HttpService.post(
+  //       '$ONEPAY_API_BASE/transaction/status/',
+  //       headers: {
+  //         'Authorization': ONEPAY_APP_TOKEN,
+  //         'Content-Type': 'application/json',
+  //       },
+  //       body: requestBody,
+  //     );
 
-      if (response['status'] == 200) {
-        final data = response['data'];
-        return {
-          'success': true,
-          'paid': data['status'] == true,
-          'amount': data['amount'],
-          'paid_on': data['paid_on'],
-        };
-      } else {
-        return {
-          'success': false,
-          'error': response['message'] ?? 'Failed to check payment status',
-        };
-      }
-    } catch (e) {
-      print("Error checking payment status: $e");
-      return {
-        'success': false,
-        'error': e.toString(),
-      };
-    }
-  }
+  //     if (response['status'] == 200) {
+  //       final data = response['data'];
+  //       return {
+  //         'success': true,
+  //         'paid': data['status'] == true,
+  //         'amount': data['amount'],
+  //         'paid_on': data['paid_on'],
+  //       };
+  //     } else {
+  //       return {
+  //         'success': false,
+  //         'error': response['message'] ?? 'Failed to check payment status',
+  //       };
+  //     }
+  //   } catch (e) {
+  //     print("Error checking payment status: $e");
+  //     return {
+  //       'success': false,
+  //       'error': e.toString(),
+  //     };
+  //   }
+  // }
 
   // Method to open OnePay payment in WebView
   Future<void> _openOnePayPayment(
@@ -250,17 +212,17 @@ class _PaymentScreenState extends State<PaymentScreen> {
           onPaymentResult: (success, txnId) async {
             if (success && txnId != null) {
               setState(() {
-                onePayTransactionId = txnId;
+                paymentTransactionId = txnId;
               });
 
-              // Verify payment status
-              final statusResult = await _checkPaymentStatus(txnId);
-              if (statusResult['success'] && statusResult['paid']) {
-                await _handleSuccessfulPayment(txnId);
-              } else {
-                _showErrorDialog("Payment Verification Failed",
-                    "Payment could not be verified. Please contact support.");
-              }
+              // The backend will handle subscription creation via callback
+              // Just refresh subscription data and show success
+              await SubscriptionNotifier().fetchAndUpdateSubscription();
+
+              // Small delay to ensure backend processing is complete
+              await Future.delayed(const Duration(seconds: 2));
+
+              _showSuccessDialog();
             } else {
               _showErrorDialog(
                   "Payment Failed", "Payment was not completed successfully.");
@@ -271,39 +233,32 @@ class _PaymentScreenState extends State<PaymentScreen> {
     );
   }
 
-  // Method to handle successful payment
-  Future<void> _handleSuccessfulPayment(String transactionId) async {
-    try {
-      setState(() {
-        isProcessingPayment = true;
-        paymentTransactionId = transactionId;
-      });
+//   // Method to handle successful payment
 
-      // Create subscription after successful payment
-      bool subscriptionCreated = await _createSubscription();
+// // Update your _handleSuccessfulPayment method to handle the backend response
+//   Future<void> _handleSuccessfulPayment(String transactionId) async {
+//     try {
+//       setState(() {
+//         isProcessingPayment = true;
+//         paymentTransactionId = transactionId;
+//       });
 
-      if (subscriptionCreated) {
-        // Create vehicle license after successful subscription
-        bool licenseCreated = await _createVehicleLicense();
-        await SubscriptionNotifier().fetchAndUpdateSubscription();
+//       // The subscription and license creation is now handled by the backend
+//       // We just need to refresh the subscription data and show success
+//       await SubscriptionNotifier().fetchAndUpdateSubscription();
 
-        if (licenseCreated) {
-          _showSuccessDialog();
-        } else {
-          _showPartialSuccessDialog();
-        }
-      } else {
-        _showErrorDialog("Subscription Failed",
-            "Payment was successful but subscription activation failed. Please contact support.");
-      }
-    } catch (e) {
-      _showErrorDialog("Error", "An error occurred: ${e.toString()}");
-    } finally {
-      setState(() {
-        isProcessingPayment = false;
-      });
-    }
-  }
+//       // Small delay to ensure backend processing is complete
+//       await Future.delayed(const Duration(seconds: 2));
+
+//       _showSuccessDialog();
+//     } catch (e) {
+//       _showErrorDialog("Error", "An error occurred: ${e.toString()}");
+//     } finally {
+//       setState(() {
+//         isProcessingPayment = false;
+//       });
+//     }
+//   }
 
   // Method to process payment with OnePay
   Future<void> _processPayment() async {
@@ -312,8 +267,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
         isProcessingPayment = true;
       });
 
-      // Create OnePay payment request
-      final paymentRequest = await _createOnePayPaymentRequest();
+      // Create payment request via backend
+      final paymentRequest = await _createPaymentRequest();
 
       if (paymentRequest['success']) {
         // Open OnePay payment in WebView
@@ -322,23 +277,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
           paymentRequest['transaction_id'],
         );
       } else {
+        print('Error setting up payment: ${paymentRequest['error']}');
         _showErrorDialog("Payment Setup Failed",
             paymentRequest['error'] ?? "Failed to setup payment");
-      }
-      final subscriptionCreated = await _createSubscription();
-      if (subscriptionCreated) {
-        // Create vehicle license after successful subscription
-        final licenseCreated = await _createVehicleLicense();
-        await SubscriptionNotifier().fetchAndUpdateSubscription();
-
-        if (licenseCreated) {
-          _showSuccessDialog();
-        } else {
-          _showPartialSuccessDialog();
-        }
-      } else {
-        _showErrorDialog("Subscription Failed",
-            "Payment was successful but subscription activation failed. Please contact support.");
       }
     } catch (e) {
       print("Error processing payment: $e");
@@ -393,39 +334,39 @@ class _PaymentScreenState extends State<PaymentScreen> {
     );
   }
 
-  // Helper method to show partial success dialog
-  void _showPartialSuccessDialog() {
-    if (!mounted) return;
+  // // Helper method to show partial success dialog
+  // void _showPartialSuccessDialog() {
+  //   if (!mounted) return;
 
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.warning, color: Colors.orange),
-            SizedBox(width: 8),
-            Text('Partial Success'),
-          ],
-        ),
-        content: Text(
-          'Your subscription was activated successfully, but there was an issue creating your ${widget.vehicleTypeName} license. Please contact support.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop(); // Close dialog
-              if (widget.onSubscriptionCompleted != null) {
-                widget.onSubscriptionCompleted!();
-              }
-              Navigator.of(context).pop(); // Go back to subscription screen
-            },
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
-  }
+  //   showDialog(
+  //     context: context,
+  //     barrierDismissible: false,
+  //     builder: (context) => AlertDialog(
+  //       title: const Row(
+  //         children: [
+  //           Icon(Icons.warning, color: Colors.orange),
+  //           SizedBox(width: 8),
+  //           Text('Partial Success'),
+  //         ],
+  //       ),
+  //       content: Text(
+  //         'Your subscription was activated successfully, but there was an issue creating your ${widget.vehicleTypeName} license. Please contact support.',
+  //       ),
+  //       actions: [
+  //         TextButton(
+  //           onPressed: () {
+  //             Navigator.of(context).pop(); // Close dialog
+  //             if (widget.onSubscriptionCompleted != null) {
+  //               widget.onSubscriptionCompleted!();
+  //             }
+  //             Navigator.of(context).pop(); // Go back to subscription screen
+  //           },
+  //           child: const Text('OK'),
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
 
   // Helper method to show error dialog
   void _showErrorDialog(String title, String message) {
@@ -455,72 +396,72 @@ class _PaymentScreenState extends State<PaymentScreen> {
     );
   }
 
-  Future<bool> _createVehicleLicense() async {
-    try {
-      setState(() {
-        isCreatingLicense = true;
-      });
+  // Future<bool> _createVehicleLicense() async {
+  //   try {
+  //     setState(() {
+  //       isCreatingLicense = true;
+  //     });
 
-      final userId = await StorageService.getID();
-      if (userId == null) {
-        print("User ID is null, cannot create vehicle license");
-        return false;
-      }
+  //     final userId = await StorageService.getID();
+  //     if (userId == null) {
+  //       print("User ID is null, cannot create vehicle license");
+  //       return false;
+  //     }
 
-      final licenseNumber =
-          "LIC${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}";
+  //     final licenseNumber =
+  //         "LIC${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}";
 
-      print(
-          "Creating vehicle license for userId: $userId, vehicleTypeId: ${widget.vehicleTypeId}");
+  //     print(
+  //         "Creating vehicle license for userId: $userId, vehicleTypeId: ${widget.vehicleTypeId}");
 
-      final response = await HttpService.post(
-        'http://88.222.215.134:3000/exams/api/mock-exam/admin/user/$userId/licenses',
-        body: {
-          'vehicle_type_id': widget.vehicleTypeId,
-          'license_number': licenseNumber,
-        },
-      );
+  //     final response = await HttpService.post(
+  //       'http://88.222.215.134:3000/exams/api/mock-exam/admin/user/$userId/licenses',
+  //       body: {
+  //         'vehicle_type_id': widget.vehicleTypeId,
+  //         'license_number': licenseNumber,
+  //       },
+  //     );
 
-      if (response['success'] == true) {
-        print("Vehicle license created successfully: $licenseNumber");
-        return true;
-      } else {
-        print("Failed to create vehicle license: ${response['error']}");
-        return false;
-      }
-    } catch (e) {
-      print("Error creating vehicle license: $e");
-      return false;
-    } finally {
-      if (mounted) {
-        setState(() {
-          isCreatingLicense = false;
-        });
-      }
-    }
-  }
+  //     if (response['success'] == true) {
+  //       print("Vehicle license created successfully: $licenseNumber");
+  //       return true;
+  //     } else {
+  //       print("Failed to create vehicle license: ${response['error']}");
+  //       return false;
+  //     }
+  //   } catch (e) {
+  //     print("Error creating vehicle license: $e");
+  //     return false;
+  //   } finally {
+  //     if (mounted) {
+  //       setState(() {
+  //         isCreatingLicense = false;
+  //       });
+  //     }
+  //   }
+  // }
 
-  Future<bool> _createSubscription() async {
-    try {
-      final userId = await StorageService.getID();
-      if (userId == null) return false;
+  // Future<bool> _createSubscription() async {
+  //   try {
+  //     final userId = await StorageService.getID();
+  //     if (userId == null) return false;
 
-      final response = await SubscriptionService.createSubscription(
-        userId: userId,
-        planId: widget.selectedPlan.id,
-        paymentMethod: "onepay",
-        paymentDetails: {
-          "transaction_id": paymentTransactionId,
-          "onepay_transaction_id": onePayTransactionId,
-        },
-      );
+  //     final response = await SubscriptionService.createSubscription(
+  //       userId: userId,
+  //       planId: widget.selectedPlan.id,
+  //       paymentMethod: "onepay",
+  //       paymentDetails: {
+  //         "transaction_id": paymentTransactionId,
+  //         "onepay_transaction_id": onePayTransactionId,
+  //       },
+  //     );
 
-      return response.success;
-    } catch (e) {
-      print("Error creating subscription: $e");
-      return false;
-    }
-  }
+  //     return response.success;
+  //   } catch (e) {
+  //     print("Error creating subscription: $e");
+  //     return false;
+  //   }
+  // }
 
   @override
   Widget build(BuildContext context) {
@@ -684,6 +625,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
 }
 
 // WebView widget for OnePay payment
+// Replace your existing OnePayWebView class with this updated version
+
 class OnePayWebView extends StatefulWidget {
   final String paymentUrl;
   final String transactionId;
@@ -715,25 +658,45 @@ class _OnePayWebViewState extends State<OnePayWebView> {
             setState(() {
               isLoading = true;
             });
+            debugPrint('WebView loading: $url');
           },
           onPageFinished: (String url) {
             setState(() {
               isLoading = false;
             });
+            debugPrint('WebView finished loading: $url');
 
-            // Check if the URL indicates payment completion
-            if (url.contains('payment-success') || url.contains('success')) {
-              widget.onPaymentResult(true, widget.transactionId);
+            // Check if the URL indicates payment completion from your backend
+            if (url.contains('/payment/success')) {
+              // Extract subscription_id and transaction_id from URL if needed
+              final uri = Uri.parse(url);
+              final subscriptionId = uri.queryParameters['subscription_id'];
+              final transactionId = uri.queryParameters['transaction_id'];
+
+              debugPrint(
+                  'Payment successful: $transactionId, Subscription: $subscriptionId');
+              widget.onPaymentResult(
+                  true, transactionId ?? widget.transactionId);
               Navigator.pop(context);
-            } else if (url.contains('payment-failed') ||
-                url.contains('failed') ||
-                url.contains('cancel')) {
+            } else if (url.contains('/payment/failed')) {
+              // Extract error information from URL if needed
+              final uri = Uri.parse(url);
+              final error = uri.queryParameters['error'] ?? 'Payment failed';
+
+              debugPrint('Payment failed: $error');
               widget.onPaymentResult(false, null);
               Navigator.pop(context);
             }
           },
           onWebResourceError: (WebResourceError error) {
-            print('WebView error: ${error.description}');
+            debugPrint('WebView error: ${error.description}');
+            // Don't automatically fail on resource errors, as they might be non-critical
+          },
+          onNavigationRequest: (NavigationRequest request) {
+            debugPrint('Navigation request: ${request.url}');
+
+            // Allow all navigation requests to proceed
+            return NavigationDecision.navigate;
           },
         ),
       )
@@ -749,8 +712,29 @@ class _OnePayWebViewState extends State<OnePayWebView> {
         leading: IconButton(
           icon: const Icon(Icons.close),
           onPressed: () {
-            widget.onPaymentResult(false, null);
-            Navigator.pop(context);
+            // Show confirmation dialog before canceling
+            showDialog(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Text('Cancel Payment'),
+                content:
+                    const Text('Are you sure you want to cancel the payment?'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Continue Payment'),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      Navigator.pop(context); // Close dialog
+                      widget.onPaymentResult(false, null);
+                      Navigator.pop(context); // Close WebView
+                    },
+                    child: const Text('Cancel Payment'),
+                  ),
+                ],
+              ),
+            );
           },
         ),
       ),
@@ -759,7 +743,14 @@ class _OnePayWebViewState extends State<OnePayWebView> {
           WebViewWidget(controller: controller),
           if (isLoading)
             const Center(
-              child: CircularProgressIndicator(),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text('Loading payment page...'),
+                ],
+              ),
             ),
         ],
       ),
