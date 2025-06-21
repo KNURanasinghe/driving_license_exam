@@ -1,13 +1,15 @@
-import 'package:flutter/material.dart';
-import 'package:webview_flutter/webview_flutter.dart';
-import 'package:driving_license_exam/services/http_service.dart';
-import 'package:driving_license_exam/services/api_service.dart';
-import 'package:driving_license_exam/services/subscription_service.dart';
-import 'models/subscription_models.dart';
-import 'providers/subscription_notifier.dart';
 import 'dart:convert';
 import 'dart:math';
+
 import 'package:crypto/crypto.dart';
+import 'package:driving_license_exam/services/api_service.dart';
+import 'package:driving_license_exam/services/http_service.dart';
+import 'package:driving_license_exam/services/subscription_service.dart';
+import 'package:flutter/material.dart';
+import 'package:webview_flutter/webview_flutter.dart';
+
+import 'models/subscription_models.dart';
+import 'providers/subscription_notifier.dart';
 
 class PaymentScreen extends StatefulWidget {
   final SubscriptionPlan selectedPlan;
@@ -35,11 +37,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   // OnePay Configuration - Replace with your actual credentials
   static const String ONEPAY_APP_ID =
-      "80NR1189D04CD635D8ACD"; // Replace with your App ID
+      "6JHC11908A89E00B3FD7D"; // Replace with your App ID
   static const String ONEPAY_APP_TOKEN =
-      "ca00d67bf74d77b01fa26dc6780d7ff9522d8f82d30ff813d4c605f2662cea9ad332054cc66aff68.EYAW1189D04CD635D8B20"; // Replace with your App Token
+      "542b1acf2150e870cd2ea7261a160fe47546fb20b05c3af03dfac7f32155c61618e767ebab9bd7f8.FN7I11908A89E00B3FDBE"; // Replace with your App Token
   static const String ONEPAY_HASH_SALT =
-      "XXXHASHSALTXXX"; // Replace with your Hash Salt
+      "QCW911908A89E00B3FDA8"; // Replace with your Hash Salt
   static const String ONEPAY_API_BASE = "https://api.onepay.lk/v3";
 
   // Method to generate transaction reference
@@ -61,62 +63,134 @@ class _PaymentScreenState extends State<PaymentScreen> {
   // Method to create OnePay payment request
   Future<Map<String, dynamic>> _createOnePayPaymentRequest() async {
     try {
+      // Validate user ID
+      final userId = await StorageService.getID();
+      if (userId == null) {
+        return {
+          'success': false,
+          'error': 'User not authenticated. Please log in.',
+        };
+      }
+
+      // Fetch user details from a secure service (replace with your implementation)
+      final userDetails = await _fetchUserDetails(userId);
+      if (!userDetails['success']) {
+        return {
+          'success': false,
+          'error': userDetails['error'] ?? 'Failed to fetch user details',
+        };
+      }
+
+      // Generate transaction reference and validate amount
       final reference = _generateTransactionReference();
       final amount = widget.selectedPlan.price;
-      const currency = "LKR"; // Adjust currency as needed
+      if (amount <= 0) {
+        return {
+          'success': false,
+          'error': 'Invalid payment amount',
+        };
+      }
+      const currency =
+          "LKR"; // Ensure this matches OnePay's supported currencies
 
-      // Generate hash
+      // Generate hash (ensure _generateOnePayHash matches OnePay's requirements)
       final hash = _generateOnePayHash(
-          ONEPAY_APP_ID, currency, amount, ONEPAY_HASH_SALT);
+        ONEPAY_APP_ID,
+        currency,
+        amount,
+        ONEPAY_HASH_SALT,
+      );
 
-      // Get user details (you may need to fetch these from your user service)
-      final userId = await StorageService.getID();
-
+      // Build request body
       final requestBody = {
         "currency": currency,
         "app_id": ONEPAY_APP_ID,
         "hash": hash,
-        "amount": amount,
+        "amount": amount.toStringAsFixed(2), // Ensure correct decimal places
         "reference": reference,
-        "customer_first_name": "Customer", // Replace with actual user data
-        "customer_last_name": "Name", // Replace with actual user data
-        "customer_phone_number":
-            "+94771234567", // Replace with actual user data
-        "customer_email": "customer@email.com", // Replace with actual user data
+        "customer_first_name": userDetails['first_name'] ?? 'Unknown',
+        "customer_last_name": userDetails['last_name'] ?? 'Unknown',
+        "customer_phone_number": userDetails['phone_number'] ?? '',
+        "customer_email": userDetails['email'] ?? '',
         "transaction_redirect_url":
-            "https://your-app.com/payment-success", // Your success URL
+            "https://your-app.com/payment-success", // Replace with dynamic or configured URL
         "additionalData":
-            "subscription_${widget.selectedPlan.id}_vehicle_${widget.vehicleTypeId}"
+            "subscription_${widget.selectedPlan.id}_vehicle_${widget.vehicleTypeId}",
       };
 
-      print("Creating OnePay payment request: $requestBody");
+      // Log request (avoid logging sensitive data in production)
+      debugPrint(
+          "Creating OnePay payment request: ${requestBody['reference']}");
 
+      // Send POST request
       final response = await HttpService.post(
         '$ONEPAY_API_BASE/checkout/link/',
         headers: {
-          'Authorization': ONEPAY_APP_TOKEN,
+          'Authorization': 'Bearer $ONEPAY_APP_TOKEN', // Ensure correct format
           'Content-Type': 'application/json',
         },
-        body: requestBody,
+        body: requestBody, // Pass as Map<String, dynamic>
       );
 
-      print("OnePay response: $response");
+      // Log response (avoid logging sensitive data)
+      debugPrint("OnePay response status: ${response['status']}");
 
-      if (response['status'] == 200) {
+      // Validate response
+      if (response['status'] == 200 && response['data'] != null) {
+        final data = response['data'];
+        if (data['gateway']?['redirect_url'] != null &&
+            data['ipg_transaction_id'] != null) {
+          return {
+            'success': true,
+            'payment_url': data['gateway']['redirect_url'],
+            'transaction_id': data['ipg_transaction_id'],
+            'reference': reference,
+          };
+        } else {
+          return {
+            'success': false,
+            'error': 'Invalid response structure from OnePay',
+          };
+        }
+      } else {
+        return {
+          'success': false,
+          'error': response['message'] ??
+              'Failed to create payment request (Status: ${response['status']})',
+        };
+      }
+    } catch (e, stackTrace) {
+      // Log error with stack trace for debugging
+      debugPrint("Error creating OnePay payment request: $e\n$stackTrace");
+      return {
+        'success': false,
+        'error': 'An error occurred while setting up payment: ${e.toString()}',
+      };
+    }
+  }
+
+// Placeholder method to fetch user details (implement based on your backend)
+  Future<Map<String, dynamic>> _fetchUserDetails(String userId) async {
+    try {
+      final response = await HttpService.get(
+        'http://88.222.215.134:3000/api/users/$userId', // Replace with your user endpoint
+      );
+      if (response['success'] == true) {
+        final data = response['data'];
         return {
           'success': true,
-          'payment_url': response['data']['gateway']['redirect_url'],
-          'transaction_id': response['data']['ipg_transaction_id'],
-          'reference': reference,
+          'first_name': data['first_name'],
+          'last_name': data['last_name'],
+          'phone_number': data['phone_number'],
+          'email': data['email'],
         };
       } else {
         return {
           'success': false,
-          'error': response['message'] ?? 'Failed to create payment request',
+          'error': response['error'] ?? 'Failed to fetch user details',
         };
       }
     } catch (e) {
-      print("Error creating OnePay payment request: $e");
       return {
         'success': false,
         'error': e.toString(),
@@ -239,18 +313,18 @@ class _PaymentScreenState extends State<PaymentScreen> {
       });
 
       // Create OnePay payment request
-      // final paymentRequest = await _createOnePayPaymentRequest();
+      final paymentRequest = await _createOnePayPaymentRequest();
 
-      // if (paymentRequest['success']) {
-      //   // Open OnePay payment in WebView
-      //   await _openOnePayPayment(
-      //     paymentRequest['payment_url'],
-      //     paymentRequest['transaction_id'],
-      //   );
-      // } else {
-      //   _showErrorDialog("Payment Setup Failed",
-      //       paymentRequest['error'] ?? "Failed to setup payment");
-      // }
+      if (paymentRequest['success']) {
+        // Open OnePay payment in WebView
+        await _openOnePayPayment(
+          paymentRequest['payment_url'],
+          paymentRequest['transaction_id'],
+        );
+      } else {
+        _showErrorDialog("Payment Setup Failed",
+            paymentRequest['error'] ?? "Failed to setup payment");
+      }
       final subscriptionCreated = await _createSubscription();
       if (subscriptionCreated) {
         // Create vehicle license after successful subscription
