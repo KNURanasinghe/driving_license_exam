@@ -451,9 +451,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         planId: widget.selectedPlan.id,
         paymentMethod: "onepay",
         paymentDetails: {
-          "transaction_id": paymentTransactionId,
-          "onepay_transaction_id": onePayTransactionId,
-          "payment_gateway": "onepay",
+          "transaction_id": onePayTransactionId,
         },
       );
 
