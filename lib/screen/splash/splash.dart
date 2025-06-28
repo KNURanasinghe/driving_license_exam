@@ -49,10 +49,7 @@ class _SplashState extends State<Splash> {
                 SizedBox(
                   height: size.height * 0.17,
                 ),
-                const Text(
-                  'App logo',
-                  style: TextStyle(fontSize: 24),
-                ),
+                Image.asset("assets/images/logo.jpeg", width: size.width * 0.5),
                 SizedBox(
                   height: size.height * 0.1,
                 ),
