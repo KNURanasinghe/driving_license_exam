@@ -103,7 +103,7 @@ class _SplashState extends State<Splash> {
                   ),
                   const SizedBox(height: 4),
                   const Text(
-                    'lifewave.lk',
+                    'Lifewave International (pvt) Ltd',
                     style: TextStyle(
                       fontSize: 16,
                       color: Colors.black87,
@@ -112,7 +112,7 @@ class _SplashState extends State<Splash> {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    '© ${DateTime.now().year} TechSolutions Inc. All rights reserved.',
+                    '© ${DateTime.now().year} dtest.lk. All rights reserved.',
                     style: const TextStyle(
                       fontSize: 12,
                       color: Colors.grey,
