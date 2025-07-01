@@ -278,7 +278,7 @@ class _HomeContentState extends State<HomeContent> {
             ClipRRect(
               borderRadius: BorderRadius.circular(15),
               child: Image.asset(
-                'assets/images/home.png', // Replace with your image asset
+                'assets/images/home.jpeg', // Replace with your image asset
                 height: size.height * 0.25,
                 width: double.infinity,
                 fit: BoxFit.cover,
@@ -457,7 +457,7 @@ class _HomeContentState extends State<HomeContent> {
                 homeState._currentIndex = 3; // Go to subscription tab
               });
             },
-            child: const Text("Get Premium",
+            child: const Text("Get Access",
                 style: TextStyle(
                     color: Color(0xFF219EBC), fontWeight: FontWeight.w600)),
           ),
@@ -534,7 +534,7 @@ class _HomeContentState extends State<HomeContent> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
-                    child: Text("Get premium access to unlock",
+                    child: Text("Select your plan to unlock.....",
                         style: TextStyle(color: Colors.grey)),
                   ),
                   SizedBox(height: 0.4),

@@ -2,7 +2,6 @@ import 'package:driving_license_exam/component/appbar.dart';
 import 'package:driving_license_exam/component/custompageroute.dart';
 import 'package:driving_license_exam/editprofile.dart';
 import 'package:driving_license_exam/models/subscription_models.dart';
-import 'package:driving_license_exam/premium.dart';
 import 'package:driving_license_exam/providers/subscription_notifier.dart';
 import 'package:driving_license_exam/screen/login/login.dart';
 import 'package:driving_license_exam/services/api_service.dart';
@@ -302,7 +301,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 errorBuilder: (context, error, stackTrace) {
                                   print('Error loading profile image: $error');
                                   return Image.asset(
-                                    'assets/images/profile.png',
+                                    'assets/images/profile.jpeg',
                                     width: 100,
                                     height: 100,
                                     fit: BoxFit.cover,
@@ -310,7 +309,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 },
                               )
                             : Image.asset(
-                                'assets/images/profile.png',
+                                'assets/images/profile.jpeg',
                                 width: 100,
                                 height: 100,
                                 fit: BoxFit.cover,

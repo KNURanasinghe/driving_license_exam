@@ -494,7 +494,7 @@ class _EditprofileState extends State<Editprofile> {
                                           ? NetworkImage(
                                               'http://88.222.215.134:3000$_currentProfileImageUrl')
                                           : const AssetImage(
-                                                  'assets/images/profile.png')
+                                                  'assets/images/profile.jpeg')
                                               as ImageProvider,
                                 ),
                                 Positioned(
